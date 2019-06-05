@@ -51,21 +51,36 @@ base_folder_name = '{}_style_{}mazes_{}goals_{}res_{}size_{}seed'.format(
 #     args.map_style, args.n_mazes, args.n_goals, args.res, args.maze_size, args.limit_low, args.limit_high, args.seed
 # )
 
-base_name = os.path.join(args.save_dir, base_folder_name, 'maze_dataset.npz')
+base_path = os.path.join(args.save_dir, base_folder_name)
+
+if not os.path.exists(base_path):
+    os.makedirs(base_path)
+
+base_name = os.path.join(base_path, 'maze_dataset.npz')
 
 sensor_folder_name = '{}sensors_{}fov'.format(
     args.n_sensors,
     args.fov,
 )
 
-sensor_name = os.path.join(args.save_dir, base_folder_name, sensor_folder_name, 'maze_dataset.npz')
+sensor_path = os.path.join(args.save_dir, base_folder_name, sensor_folder_name)
+
+if not os.path.exists(sensor_path):
+    os.makedirs(sensor_path)
+
+sensor_name = os.path.join(sensor_path, 'maze_dataset.npz')
 
 traj_folder_name = '{}t_{}s'.format(
     args.n_trajectories,
     args.trajectory_steps,
 )
 
-traj_name = os.path.join(args.save_dir, base_folder_name, sensor_folder_name, traj_folder_name, 'trajectory_dataset.npz')
+traj_path = os.path.join(args.save_dir, base_folder_name, sensor_folder_name, traj_folder_name)
+
+if not os.path.exists(traj_path):
+    os.makedirs(traj_path)
+
+traj_name = os.path.join(traj_path, 'trajectory_dataset.npz')
 
 limit_low = 0
 limit_high = args.maze_size
@@ -341,14 +356,14 @@ if not os.path.exists(traj_name):
     # Gridworld environment parametesr
     params = {
         'continuous': True,
-        'fov': 360,
-        'n_sensors': 36,
-        'max_sensor_dist': 10,
+        'fov': args.fov,
+        'n_sensors': args.n_sensors,
+        'max_sensor_dist': args.max_dist,
         'normalize_dist_sensors': False,
         'movement_type': 'holonomic',
-        'seed': 13,
+        'seed': args.seed,
         'map_style': args.map_style,
-        'map_size': 10,
+        'map_size': args.maze_size,
         'fixed_episode_length': False,  # Setting to false so location resets are not automatic
         'episode_length': args.trajectory_steps,
         'max_lin_vel': 5,
@@ -366,38 +381,30 @@ if not os.path.exists(traj_name):
         'goal_csp': False,
         'goal_distance': 0,  # 0 means completely random, goal isn't used anyway
         'agent_csp': True,
-        'csp_dim': 512,
+        'csp_dim': args.dim,
         'x_axis_vec': x_axis_sp,
         'y_axis_vec': y_axis_sp,
     }
 
     obs_dict = generate_obs_dict(params)
 
-    positions = np.zeros((args.n_maps, args.n_trajectories, args.trajectory_steps, 2))
-    dist_sensors = np.zeros((args.n_maps, args.n_trajectories, args.trajectory_steps, args.n_sensors))
-
-    coarse_maps = np.zeros((args.n_maps, args.map_size, args.map_size))
+    positions = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, 2))
+    dist_sensors = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, args.n_sensors))
 
     # spatial semantic pointers for position
-    ssps = np.zeros((args.n_maps, args.n_trajectories, args.trajectory_steps, args.sp_dim))
+    ssps = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, args.dim))
     # velocity in x and y
-    cartesian_vels = np.zeros((args.n_maps, args.n_trajectories, args.trajectory_steps, 2))
+    cartesian_vels = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, 2))
 
     def get_ssp_activation(pos):
 
         return encode_point(pos[0] * args.ssp_scaling, pos[1] * args.ssp_scaling, x_axis_sp, y_axis_sp).v
 
-    # compute scaling and offset that will transform a value in the range (0, map-size) to (limit_low, limit_high)
-
-    map_size = coarse_maps.shape[1]
-    # ssp_scaling = (args.limit_high - args.limit_low) / map_size
-    # ssp_offset = map_size / 2.
-
-    for mi in range(args.n_maps):
-        print("Map {} of {}".format(mi + 1, args.n_maps))
+    for mi in range(args.n_mazes):
+        print("Map {} of {}".format(mi + 1, args.n_mazes))
 
         env = GridWorldEnv(
-            map_array=coarse_maps[mi, :, :],
+            map_array=coarse_mazes[mi, :, :],
             observations=obs_dict,
             movement_type=params['movement_type'],
             max_lin_vel=params['max_lin_vel'],
@@ -413,7 +420,7 @@ if not os.path.exists(traj_name):
             # csp_offset=ssp_offset,  # subtract this value from state before creating a csp
         )
 
-        agent = RandomTrajectoryAgent(obs_index_dict=env.obs_index_dict)
+        agent = RandomTrajectoryAgent(obs_index_dict=env.obs_index_dict, n_sensors=args.n_sensors)
 
         obs_index_dict = env.obs_index_dict
 
@@ -457,7 +464,7 @@ if not os.path.exists(traj_name):
         cartesian_vels=cartesian_vels,
         x_axis_vec=x_axis_vec,
         y_axis_vec=y_axis_vec,
-        coarse_maps=coarse_maps,
+        coarse_mazes=coarse_mazes,
         # ssp_scaling=args.ssp_scaling,
         # ssp_offset=args.ssp_offset,
         # ssp_scaling=ssp_scaling,

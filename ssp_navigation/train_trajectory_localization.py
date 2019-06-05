@@ -59,7 +59,7 @@ ssp_scaling = data['ssp_scaling']
 ssp_offset = data['ssp_offset']
 
 # shape of coarse maps is (n_maps, env_size, env_size)
-coarse_maps = data['coarse_maps']
+coarse_maps = data['coarse_mazes']
 n_maps = coarse_maps.shape[0]
 env_size = coarse_maps.shape[1]
 
