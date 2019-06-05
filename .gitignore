@@ -1,0 +1,11 @@
+*.swp
+*.pyc
+*.json
+*.pt
+*.sh
+*.egg-info
+.idea
+__pycache__
+
+ssp_navigation/datasets
+ssp_navigation/models
