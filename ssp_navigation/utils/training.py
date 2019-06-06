@@ -304,8 +304,10 @@ def create_policy_dataloader(data, n_samples, maze_sps, args):
     n_mazes = fine_mazes.shape[0]
 
     # NOTE: only used for one-hot encoded location representation case
-    xso = np.linspace(args.limit_low, args.limit_high, int(np.sqrt(args.dim)))
-    yso = np.linspace(args.limit_low, args.limit_high, int(np.sqrt(args.dim)))
+    xs = data['xs']
+    ys = data['ys']
+    xso = np.linspace(xs[0], xs[-1], int(np.sqrt(args.dim)))
+    yso = np.linspace(ys[0], ys[-1], int(np.sqrt(args.dim)))
 
     # n_mazes by n_goals by dim
     if args.spatial_encoding == 'ssp':

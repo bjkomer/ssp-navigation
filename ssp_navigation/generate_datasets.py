@@ -36,8 +36,8 @@ parser.add_argument('--fov', type=float, default=360, help='field of view of dis
 parser.add_argument('--max-dist', type=float, default=10, help='maximum distance for distance sensor')
 
 # Parameters for trajectory dataset
-parser.add_argument('--n-trajectories', type=int, default=200, help='number of distinct full trajectories per map in the training set')
-parser.add_argument('--trajectory-steps', type=int, default=750, help='number of steps in each trajectory')
+parser.add_argument('--n-trajectories', type=int, default=400, help='number of distinct full trajectories per map in the training set')
+parser.add_argument('--trajectory-steps', type=int, default=250, help='number of steps in each trajectory')
 
 args = parser.parse_args()
 

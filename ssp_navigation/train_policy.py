@@ -14,45 +14,52 @@ parser = argparse.ArgumentParser(
     'Train a function that given a maze and a goal location, computes the direction to move to get to that goal'
 )
 
-parser.add_argument('--epochs', type=int, default=50, help='Number of epochs to train for')
+parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train for')
 parser.add_argument('--epoch-offset', type=int, default=0,
                     help='Optional offset to start epochs counting from. To be used when continuing training')
-parser.add_argument('--viz-period', type=int, default=200, help='number of epochs before a viz set run')
+parser.add_argument('--viz-period', type=int, default=50, help='number of epochs before a viz set run')
 parser.add_argument('--val-period', type=int, default=25, help='number of epochs before a test/validation set run')
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=['ssp', 'random', '2d', '2d-normalized', 'one-hot', 'trig', 'random-trig', 'random-proj', 'learned'],
                     help='coordinate encoding for agent location and goal')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
-parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='ssp',
+parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
                     help='ssp: region corresponding to maze layout.'
                          'one-hot: each maze given a one-hot vector.'
                          'random-sp: each maze given a unique random SP as an ID')
 parser.add_argument('--seed', type=int, default=13, help='Seed for training and generating axis SSPs')
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the SSPs')
-parser.add_argument('--n-train-samples', type=int, default=1000, help='Number of training samples')
-parser.add_argument('--n-test-samples', type=int, default=1000, help='Number of testing samples')
+parser.add_argument('--n-train-samples', type=int, default=50000, help='Number of training samples')
+parser.add_argument('--n-test-samples', type=int, default=5000, help='Number of testing samples')
 parser.add_argument('--hidden-size', type=int, default=512, help='Size of the hidden layer in the model')
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
 parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--momentum', type=float, default=0.9)
 parser.add_argument('--weight-histogram', action='store_true', help='Save histogram of the weights')
-parser.add_argument('--maze-type', type=str, default='random', choices=['example', 'random'], help='maze to learn')
-parser.add_argument('--maze-size', type=int, default=10, help='Size of the coarse maze structure')
 parser.add_argument('--res', type=int, default=64, help='resolution of the fine maze')
-parser.add_argument('--limit-low', type=float, default=-5, help='lowest coordinate value')
-parser.add_argument('--limit-high', type=float, default=5, help='highest coordinate value')
-parser.add_argument('--dataset', type=str, default='maze_datasets/maze_dataset_10mazes_25goals_64res_13seed.npz')
-parser.add_argument('--use-wall-overlay', action='store_true', help='Use rainbow colours and wall overlay in validation images')
-parser.add_argument('--logdir', type=str, default='trained_models/policy',
-                    help='Directory for saved model and tensorboard log')
+parser.add_argument('--dataset-dir', type=str, default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed')
+parser.add_argument('--no-wall-overlay', action='store_true', help='Do not use rainbow colours and wall overlay in validation images')
+parser.add_argument('--variant-subfolder', type=str, default='',
+                    help='Optional custom subfolder')
+parser.add_argument('--logdir', type=str, default='policy',
+                    help='Directory for saved model and tensorboard log, within dataset-dir')
 parser.add_argument('--load-saved-model', type=str, default='', help='Saved model to load from')
 
 args = parser.parse_args()
 
-assert(args.limit_low < args.limit_high)
+dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
 
-data = np.load(args.dataset)
+variant_folder = '{}_{}train_{}_id_{}layer_{}units'.format(
+    args.spatial_encoding, args.n_train_samples, args.maze_id_type, args.n_hidden_layers, args.hidden_size
+)
+
+if args.variant_subfolder != '':
+    variant_folder = os.path.join(variant_folder, args.variant_subfolder)
+
+logdir = os.path.join(args.dataset_dir, 'policy', variant_folder)
+
+data = np.load(dataset_file)
 
 rng = np.random.RandomState(seed=args.seed)
 torch.manual_seed(args.seed)
@@ -148,7 +155,7 @@ if args.load_saved_model:
 # Open a tensorboard writer if a logging directory is given
 if args.logdir != '':
     current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-    save_dir = os.path.join(args.logdir, current_time)
+    save_dir = os.path.join(logdir, current_time)
     writer = SummaryWriter(log_dir=save_dir)
     if args.weight_histogram:
         # Log the initial parameters
@@ -167,7 +174,7 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
     if e % args.viz_period == 0:
         print("Running Viz Set")
         # do a validation run and save images
-        validation_set.run_validation(model, writer, e, use_wall_overlay=args.use_wall_overlay)
+        validation_set.run_validation(model, writer, e, use_wall_overlay=not args.no_wall_overlay)
 
         if e > 0:
             # Save a copy of the model at this stage
@@ -233,7 +240,7 @@ with torch.no_grad():
         writer.add_scalar('final_test_loss', loss.data.item())
 
 print("Visualization")
-validation_set.run_validation(model, writer, args.epochs + args.epoch_offset, use_wall_overlay=args.use_wall_overlay)
+validation_set.run_validation(model, writer, args.epochs + args.epoch_offset, use_wall_overlay=not args.no_wall_overlay)
 
 
 # Close tensorboard writer
