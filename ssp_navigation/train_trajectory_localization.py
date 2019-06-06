@@ -20,20 +20,39 @@ from ssp_navigation.utils.training import TrajectoryValidationSet, localization_
 parser = argparse.ArgumentParser('Run 2D supervised localization experiment with trajectories using pytorch')
 
 parser.add_argument('--seed', type=int, default=13)
-parser.add_argument('--n-epochs', type=int, default=20)
-parser.add_argument('--n-samples', type=int, default=1000)
+parser.add_argument('--n-epochs', type=int, default=250)
+parser.add_argument('--n-samples', type=int, default=5000)
 parser.add_argument('--encoding', type=str, default='ssp', choices=['ssp', '2d'])
 parser.add_argument('--eval-period', type=int, default=50)
-parser.add_argument('--logdir', type=str, default='trained_models/ssp_trajectory_localization',
-                    help='Directory for saved model and tensorboard log')
-# TODO: update default to use dataset with distance sensor measurements (or boundary cell activations)
-parser.add_argument('--dataset', type=str, default='data/localization_trajectories_5m_200t_250s_seed13.npz')
 parser.add_argument('--load-saved-model', type=str, default='', help='Saved model to load from')
 parser.add_argument('--loss-function', type=str, default='cosine', choices=['cosine', 'mse'])
 parser.add_argument('--trajectory-length', type=int, default=100)
 parser.add_argument('--batch-size', type=int, default=10)
+parser.add_argument('--learning-rate', type=float, default=1e-5, help='Step size multiplier in the RMSProp algorithm')
+parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parameter of the RMSProp algorithm')
+
+parser.add_argument('--lstm-hidden-size', type=int, default=128)
+parser.add_argument('--hidden-size', type=int, default=512)
+
+parser.add_argument('--dataset-dir', type=str,
+                    default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed/36sensors_360fov/500t_250s/')
+parser.add_argument('--variant-subfolder', type=str, default='',
+                    help='Optional custom subfolder')
+# parser.add_argument('--logdir', type=str, default='traj_network',
+#                     help='Directory for saved model and tensorboard log, within dataset-dir')
 
 args = parser.parse_args()
+
+dataset_file = os.path.join(args.dataset_dir, 'trajectory_dataset.npz')
+
+variant_folder = '{}_rec{}_lin{}_trajlen{}'.format(
+    args.encoding, args.lstm_hidden_size, args.hidden_size, args.trajectory_length
+)
+
+if args.variant_subfolder != '':
+    variant_folder = os.path.join(variant_folder, args.variant_subfolder)
+
+logdir = os.path.join(args.dataset_dir, 'trajectory_network', variant_folder)
 
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
@@ -48,10 +67,10 @@ else:
     print("Using MSE Loss")
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-save_dir = os.path.join(args.logdir, current_time)
+save_dir = os.path.join(logdir, current_time)
 writer = SummaryWriter(log_dir=save_dir)
 
-data = np.load(args.dataset)
+data = np.load(dataset_file)
 
 x_axis_vec = data['x_axis_vec']
 y_axis_vec = data['y_axis_vec']
@@ -95,6 +114,8 @@ n_epochs = args.n_epochs
 model = LocalizationModel(
     input_size=2 + n_sensors + n_maps,
     unroll_length=rollout_length,
+    lstm_hidden_size=args.lstm_hidden_size,
+    linear_hidden_size=args.hidden_size,
     sp_dim=dim
 )
 

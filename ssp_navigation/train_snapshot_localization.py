@@ -24,16 +24,30 @@ parser.add_argument('--n-epochs', type=int, default=20)
 parser.add_argument('--n-samples', type=int, default=1000)
 parser.add_argument('--encoding', type=str, default='ssp', choices=['ssp', '2d', 'pc'])
 parser.add_argument('--eval-period', type=int, default=50)
-parser.add_argument('--logdir', type=str, default='trained_models/ssp_snapshot_localization',
-                    help='Directory for saved model and tensorboard log')
-# TODO: update default to use dataset with distance sensor measurements (or boundary cell activations)
-parser.add_argument('--dataset', type=str, default='datasets/localization_maze_style_10mazes_25goals_64res_13size_13seed_modified.npz')
 parser.add_argument('--load-saved-model', type=str, default='', help='Saved model to load from')
 parser.add_argument('--loss-function', type=str, default='cosine', choices=['cosine', 'mse'])
 parser.add_argument('--n-mazes', type=int, default=0, help='number of mazes to use. Set to 0 to use all in the dataset')
 parser.add_argument('--batch-size', type=int, default=10)
+parser.add_argument('--learning-rate', type=float, default=1e-5, help='Step size multiplier in the RMSProp algorithm')
+parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parameter of the RMSProp algorithm')
+
+parser.add_argument('--dataset-dir', type=str,
+                    default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed/36sensors_360fov')
+parser.add_argument('--variant-subfolder', type=str, default='',
+                    help='Optional custom subfolder')
 
 args = parser.parse_args()
+
+dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
+
+variant_folder = '{}_rec{}_lin{}_trajlen{}'.format(
+    args.encoding, args.lstm_hidden_size, args.hidden_size, args.trajectory_length
+)
+
+if args.variant_subfolder != '':
+    variant_folder = os.path.join(variant_folder, args.variant_subfolder)
+
+logdir = os.path.join(args.dataset_dir, 'snapshot_network', variant_folder)
 
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
@@ -48,7 +62,7 @@ else:
     print("Using MSE Loss")
 
 current_time = datetime.now().strftime('%b%d_%H-%M-%S')
-save_dir = os.path.join(args.logdir, current_time)
+save_dir = os.path.join(logdir, current_time)
 writer = SummaryWriter(log_dir=save_dir)
 
 data = np.load(args.dataset)
