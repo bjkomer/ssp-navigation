@@ -14,22 +14,27 @@ from datetime import datetime
 from tensorboardX import SummaryWriter
 import json
 from spatial_semantic_pointers.utils import get_heatmap_vectors, ssp_to_loc, ssp_to_loc_v
-from ssp_navigation.utils.training import SnapshotValidationSet, snapshot_localization_train_test_loaders, FeedForward
+from ssp_navigation.utils.training import SnapshotValidationSet, snapshot_localization_train_test_loaders
+from ssp_navigation.utils.models import FeedForward, MLP
 
 
 parser = argparse.ArgumentParser('Run 2D supervised localization experiment with snapshots using pytorch')
 
 parser.add_argument('--seed', type=int, default=13)
-parser.add_argument('--n-epochs', type=int, default=20)
-parser.add_argument('--n-samples', type=int, default=1000)
+parser.add_argument('--n-epochs', type=int, default=250)
+parser.add_argument('--n-samples', type=int, default=10000)
 parser.add_argument('--encoding', type=str, default='ssp', choices=['ssp', '2d', 'pc'])
 parser.add_argument('--eval-period', type=int, default=50)
 parser.add_argument('--load-saved-model', type=str, default='', help='Saved model to load from')
 parser.add_argument('--loss-function', type=str, default='cosine', choices=['cosine', 'mse'])
 parser.add_argument('--n-mazes', type=int, default=0, help='number of mazes to use. Set to 0 to use all in the dataset')
-parser.add_argument('--batch-size', type=int, default=10)
+parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--learning-rate', type=float, default=1e-5, help='Step size multiplier in the RMSProp algorithm')
 parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parameter of the RMSProp algorithm')
+
+parser.add_argument('--hidden-size', type=int, default=512)
+parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
+parser.add_argument('--grad-clip-thresh', type=float, default=1e-5, help='Gradient clipping threshold')
 
 parser.add_argument('--dataset-dir', type=str,
                     default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed/36sensors_360fov')
@@ -40,8 +45,8 @@ args = parser.parse_args()
 
 dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
 
-variant_folder = '{}_rec{}_lin{}_trajlen{}'.format(
-    args.encoding, args.lstm_hidden_size, args.hidden_size, args.trajectory_length
+variant_folder = '{}_{}layer_{}units'.format(
+    args.encoding, args.n_hidden_layers, args.hidden_size,
 )
 
 if args.variant_subfolder != '':
@@ -65,7 +70,7 @@ current_time = datetime.now().strftime('%b%d_%H-%M-%S')
 save_dir = os.path.join(logdir, current_time)
 writer = SummaryWriter(log_dir=save_dir)
 
-data = np.load(args.dataset)
+data = np.load(dataset_file)
 
 x_axis_vec = data['x_axis_sp']
 y_axis_vec = data['y_axis_sp']
@@ -91,18 +96,23 @@ else:
 # Used for visualization of test set performance using pos = ssp_to_loc(sp, heatmap_vectors, xs, ys)
 heatmap_vectors = get_heatmap_vectors(xs, ys, x_axis_vec, y_axis_vec)
 
-# n_samples = 5000
-n_samples = args.n_samples#1000
-batch_size = args.minibatch_size#10
-n_epochs = args.n_epochs#20
-# n_epochs = 5
+n_samples = args.n_samples
+batch_size = args.batch_size
+n_epochs = args.n_epochs
 
 # Input is the distance sensor measurements
-model = FeedForward(
-    input_size=n_sensors + n_mazes,
-    hidden_size=512,
-    output_size=dim,
-)
+if args.n_hidden_layers > 1:
+    model = MLP(
+        input_size=n_sensors + n_mazes,
+        hidden_size=args.hidden_size,
+        output_size=dim,
+        n_layers=args.n_hidden_layers)
+else:
+    model = FeedForward(
+        input_size=n_sensors + n_mazes,
+        hidden_size=args.hidden_size,
+        output_size=dim,
+    )
 
 if args.load_saved_model:
     model.load_state_dict(torch.load(args.load_saved_model), strict=False)

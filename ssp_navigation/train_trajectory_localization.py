@@ -33,6 +33,8 @@ parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parame
 
 parser.add_argument('--lstm-hidden-size', type=int, default=128)
 parser.add_argument('--hidden-size', type=int, default=512)
+parser.add_argument('--grad-clip-thresh', type=float, default=1e-5, help='Gradient clipping threshold')
+parser.add_argument('--dropout', type=float, default=0.5, help='Probability of dropout')
 
 parser.add_argument('--dataset-dir', type=str,
                     default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed/36sensors_360fov/500t_250s/')
@@ -45,8 +47,8 @@ args = parser.parse_args()
 
 dataset_file = os.path.join(args.dataset_dir, 'trajectory_dataset.npz')
 
-variant_folder = '{}_rec{}_lin{}_trajlen{}'.format(
-    args.encoding, args.lstm_hidden_size, args.hidden_size, args.trajectory_length
+variant_folder = '{}_rec{}_lin{}_trajlen{}_dropout{}'.format(
+    args.encoding, args.lstm_hidden_size, args.hidden_size, args.trajectory_length, args.dropout,
 )
 
 if args.variant_subfolder != '':
@@ -116,6 +118,7 @@ model = LocalizationModel(
     unroll_length=rollout_length,
     lstm_hidden_size=args.lstm_hidden_size,
     linear_hidden_size=args.hidden_size,
+    dropout_p=args.dropout,
     sp_dim=dim
 )
 
