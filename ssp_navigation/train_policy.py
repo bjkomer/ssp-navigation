@@ -20,7 +20,10 @@ parser.add_argument('--epoch-offset', type=int, default=0,
 parser.add_argument('--viz-period', type=int, default=50, help='number of epochs before a viz set run')
 parser.add_argument('--val-period', type=int, default=25, help='number of epochs before a test/validation set run')
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
-                    choices=['ssp', 'random', '2d', '2d-normalized', 'one-hot', 'trig', 'random-trig', 'random-proj', 'learned'],
+                    choices=[
+                        'ssp', 'random', '2d', '2d-normalized', 'one-hot',
+                        'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
+                    ],
                     help='coordinate encoding for agent location and goal')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
@@ -129,6 +132,8 @@ elif args.spatial_encoding == '2d':
     repr_dim = 2
 elif args.spatial_encoding == 'learned':
     repr_dim = 2
+elif args.spatial_encoding == 'frozen-learned':  # use a pretrained learned representation
+    repr_dim = 2
 elif args.spatial_encoding == '2d-normalized':
     repr_dim = 2
 elif args.spatial_encoding == 'one-hot':
@@ -144,13 +149,31 @@ elif args.spatial_encoding == 'random-proj':
 if args.n_hidden_layers > 1:
     model = MLP(input_size=id_size + repr_dim * 2, hidden_size=args.hidden_size, output_size=2, n_layers=args.n_hidden_layers)
 else:
-    if args.spatial_encoding == 'learned':
+    if 'learned' in args.spatial_encoding:
         model = LearnedEncoding(input_size=repr_dim, maze_id_size=id_size, hidden_size=args.hidden_size, output_size=2)
     else:
         model = FeedForward(input_size=id_size + repr_dim * 2, hidden_size=args.hidden_size, output_size=2)
 
 if args.load_saved_model:
-    model.load_state_dict(torch.load(args.load_saved_model), strict=False)
+    if args.spatial_encoding == 'frozen-learned':
+        # TODO: make sure this is working correctly
+        print("Loading learned first layer parameters from pretrained model")
+        state_dict = torch.load(args.load_saved_model)
+
+        for name, param in state_dict.items():
+            if name in ['encoding_layer.weight', 'encoding_layer.bias']:
+                model.state_dict()[name].copy_(param)
+
+        print("Freezing first layer parameters for training")
+        for name, param in model.named_parameters():
+            if name in ['encoding_layer.weight', 'encoding_layer.bias']:
+                param.requires_grad = False
+            if param.requires_grad:
+                print(name)
+    else:
+        model.load_state_dict(torch.load(args.load_saved_model), strict=False)
+elif args.spatial_encoding == 'frozen-learned':
+    raise NotImplementedError("Must select a model to load from when using frozen-learned spatial encoding")
 
 # Open a tensorboard writer if a logging directory is given
 if args.logdir != '':
