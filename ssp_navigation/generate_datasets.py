@@ -39,6 +39,10 @@ parser.add_argument('--max-dist', type=float, default=10, help='maximum distance
 parser.add_argument('--n-trajectories', type=int, default=400, help='number of distinct full trajectories per map in the training set')
 parser.add_argument('--trajectory-steps', type=int, default=250, help='number of steps in each trajectory')
 
+# Options for disabling some dataset generation
+parser.add_argument('--no-sensors', action='store_true', help='do not generate sensor dataset')
+parser.add_argument('--no-trajectory', action='store_true', help='do not generate trajectory data')
+
 args = parser.parse_args()
 
 if not os.path.exists(args.save_dir):
@@ -258,221 +262,223 @@ else:
     x_axis_sp = spa.SemanticPointer(data=x_axis_vec)
     y_axis_sp = spa.SemanticPointer(data=y_axis_vec)
 
-if not os.path.exists(sensor_name):
-    print("Generating Sensor Data")
+if (not args.no_sensors):
+    if not os.path.exists(sensor_name):
+        print("Generating Sensor Data")
 
-    n_mazes = solved_mazes.shape[0]
-    n_goals = solved_mazes.shape[1]
-    res = solved_mazes.shape[2]
-    coarse_maze_size = coarse_mazes.shape[1]
+        n_mazes = solved_mazes.shape[0]
+        n_goals = solved_mazes.shape[1]
+        res = solved_mazes.shape[2]
+        coarse_maze_size = coarse_mazes.shape[1]
 
-    limit_low = xs[0]
-    limit_high = xs[-1]
+        limit_low = xs[0]
+        limit_high = xs[-1]
 
-    sensor_scaling = (limit_high - limit_low) / coarse_maze_size
+        sensor_scaling = (limit_high - limit_low) / coarse_maze_size
 
-    # Scale to the coordinates of the coarse maze, for getting distance measurements
-    xs_scaled = ((xs - limit_low) / (limit_high - limit_low)) * coarse_maze_size
-    ys_scaled = ((ys - limit_low) / (limit_high - limit_low)) * coarse_maze_size
+        # Scale to the coordinates of the coarse maze, for getting distance measurements
+        xs_scaled = ((xs - limit_low) / (limit_high - limit_low)) * coarse_maze_size
+        ys_scaled = ((ys - limit_low) / (limit_high - limit_low)) * coarse_maze_size
 
-    n_sensors = args.n_sensors
-    fov_rad = args.fov * np.pi / 180
+        n_sensors = args.n_sensors
+        fov_rad = args.fov * np.pi / 180
 
-    dist_sensors = np.zeros((n_mazes, res, res, n_sensors))
+        dist_sensors = np.zeros((n_mazes, res, res, n_sensors))
 
-    # Generate sensor readings for every location in xs and ys in each maze
-    for mi in range(n_mazes):
-        # NOTE: only need to create the env if other 'sensors' such as boundary cells are used
-        # # Generate a GridWorld environment corresponding to the current maze in order to calculate sensor measurements
-        # env = GridWorldEnv(
-        #     map_array=coarse_mazes[mi, :, :],
-        #     movement_type='holonomic',
-        #     continuous=True,
-        # )
-        #
-        # sensors = env.get_dist_sensor_readings(
-        #     state=state,
-        #     n_sensors=n_sensors,
-        #     fov_rad=fov_rad,
-        #     max_dist=args.max_dist,
-        #     normalize=False
-        # )
+        # Generate sensor readings for every location in xs and ys in each maze
+        for mi in range(n_mazes):
+            # NOTE: only need to create the env if other 'sensors' such as boundary cells are used
+            # # Generate a GridWorld environment corresponding to the current maze in order to calculate sensor measurements
+            # env = GridWorldEnv(
+            #     map_array=coarse_mazes[mi, :, :],
+            #     movement_type='holonomic',
+            #     continuous=True,
+            # )
+            #
+            # sensors = env.get_dist_sensor_readings(
+            #     state=state,
+            #     n_sensors=n_sensors,
+            #     fov_rad=fov_rad,
+            #     max_dist=args.max_dist,
+            #     normalize=False
+            # )
 
-        for xi, x in enumerate(xs_scaled):
-            for yi, y in enumerate(ys_scaled):
+            for xi, x in enumerate(xs_scaled):
+                for yi, y in enumerate(ys_scaled):
 
-                # Only compute measurements if not in a wall
-                if fine_mazes[mi, xi, yi] == 0:
-                    # Compute sensor measurements and scale them based on xs and ys
-                    dist_sensors[mi, xi, yi, :] = generate_sensor_readings(
-                        map_arr=coarse_mazes[mi, :, :],
-                        n_sensors=n_sensors,
-                        fov_rad=fov_rad,
-                        x=x,
-                        y=y,
-                        th=0,
-                        max_sensor_dist=args.max_dist,
-                        debug_value=0,
-                    ) * sensor_scaling
+                    # Only compute measurements if not in a wall
+                    if fine_mazes[mi, xi, yi] == 0:
+                        # Compute sensor measurements and scale them based on xs and ys
+                        dist_sensors[mi, xi, yi, :] = generate_sensor_readings(
+                            map_arr=coarse_mazes[mi, :, :],
+                            n_sensors=n_sensors,
+                            fov_rad=fov_rad,
+                            x=x,
+                            y=y,
+                            th=0,
+                            max_sensor_dist=args.max_dist,
+                            debug_value=0,
+                        ) * sensor_scaling
 
-    np.savez(
-        sensor_name,
-        dist_sensors=dist_sensors,
-        coarse_mazes=coarse_mazes,
-        fine_mazes=fine_mazes,
-        solved_mazes=solved_mazes,
-        maze_sps=maze_sps,
-        x_axis_sp=x_axis_vec,
-        y_axis_sp=y_axis_vec,
-        goal_sps=goal_sps,
-        goals=goals,
-        xs=xs,
-        ys=ys,
-        max_dist=args.max_dist,
-        fov=args.fov,
-    )
-
-else:
-    print("Sensor data already exists for these parameters")
-
-    # sensor data already exists, load it instead of generating
-    sensor_data = np.load(base_name)
-
-    xs = sensor_data['xs']
-    ys = sensor_data['ys']
-    x_axis_vec = sensor_data['x_axis_sp']
-    y_axis_vec = sensor_data['y_axis_sp']
-    coarse_mazes = sensor_data['coarse_mazes']
-    fine_mazes = sensor_data['fine_mazes']
-    solved_mazes = sensor_data['solved_mazes']
-    maze_sps = sensor_data['maze_sps']
-    goal_sps = sensor_data['goal_sps']
-    goals = sensor_data['goals']
-
-
-if not os.path.exists(traj_name):
-    print("Generating Trajectory Data")
-
-    # Gridworld environment parametesr
-    params = {
-        'continuous': True,
-        'fov': args.fov,
-        'n_sensors': args.n_sensors,
-        'max_sensor_dist': args.max_dist,
-        'normalize_dist_sensors': False,
-        'movement_type': 'holonomic',
-        'seed': args.seed,
-        'map_style': args.map_style,
-        'map_size': args.maze_size,
-        'fixed_episode_length': False,  # Setting to false so location resets are not automatic
-        'episode_length': args.trajectory_steps,
-        'max_lin_vel': 5,
-        'max_ang_vel': 5,
-        'dt': 0.1,
-        'full_map_obs': False,
-        'pob': 0,
-        'n_grid_cells': 0,
-        'heading': 'none',
-        'location': 'none',
-        'goal_loc': 'none',
-        'goal_vec': 'none',
-        'bc_n_ring': 0,
-        'hd_n_cells': 0,
-        'goal_csp': False,
-        'goal_distance': 0,  # 0 means completely random, goal isn't used anyway
-        'agent_csp': True,
-        'csp_dim': args.dim,
-        'x_axis_vec': x_axis_sp,
-        'y_axis_vec': y_axis_sp,
-    }
-
-    obs_dict = generate_obs_dict(params)
-
-    positions = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, 2))
-    dist_sensors = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, args.n_sensors))
-
-    # spatial semantic pointers for position
-    ssps = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, args.dim))
-    # velocity in x and y
-    cartesian_vels = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, 2))
-
-    def get_ssp_activation(pos):
-
-        return encode_point(pos[0] * args.ssp_scaling, pos[1] * args.ssp_scaling, x_axis_sp, y_axis_sp).v
-
-    for mi in range(args.n_mazes):
-        print("Map {} of {}".format(mi + 1, args.n_mazes))
-
-        env = GridWorldEnv(
-            map_array=coarse_mazes[mi, :, :],
-            observations=obs_dict,
-            movement_type=params['movement_type'],
-            max_lin_vel=params['max_lin_vel'],
-            max_ang_vel=params['max_ang_vel'],
-            continuous=params['continuous'],
-            max_steps=params['episode_length'],
-            fixed_episode_length=params['fixed_episode_length'],
-            dt=params['dt'],
-            screen_width=300,
-            screen_height=300,
-            # TODO: use these parameters appropriately, and save them with the dataset
-            # csp_scaling=ssp_scaling,  # multiply state by this value before creating a csp
-            # csp_offset=ssp_offset,  # subtract this value from state before creating a csp
+        np.savez(
+            sensor_name,
+            dist_sensors=dist_sensors,
+            coarse_mazes=coarse_mazes,
+            fine_mazes=fine_mazes,
+            solved_mazes=solved_mazes,
+            maze_sps=maze_sps,
+            x_axis_sp=x_axis_vec,
+            y_axis_sp=y_axis_vec,
+            goal_sps=goal_sps,
+            goals=goals,
+            xs=xs,
+            ys=ys,
+            max_dist=args.max_dist,
+            fov=args.fov,
         )
 
-        agent = RandomTrajectoryAgent(obs_index_dict=env.obs_index_dict, n_sensors=args.n_sensors)
+    else:
+        print("Sensor data already exists for these parameters")
 
-        obs_index_dict = env.obs_index_dict
+        # sensor data already exists, load it instead of generating
+        sensor_data = np.load(base_name)
 
-        for n in range(args.n_trajectories):
-            print("Generating Trajectory {} of {}".format(n + 1, args.n_trajectories))
+        xs = sensor_data['xs']
+        ys = sensor_data['ys']
+        x_axis_vec = sensor_data['x_axis_sp']
+        y_axis_vec = sensor_data['y_axis_sp']
+        coarse_mazes = sensor_data['coarse_mazes']
+        fine_mazes = sensor_data['fine_mazes']
+        solved_mazes = sensor_data['solved_mazes']
+        maze_sps = sensor_data['maze_sps']
+        goal_sps = sensor_data['goal_sps']
+        goals = sensor_data['goals']
 
-            obs = env.reset(goal_distance=params['goal_distance'])
 
-            dist_sensors[mi, n, 0, :] = obs[env.obs_index_dict['dist_sensors']]
-            ssps[mi, n, 0, :] = obs[env.obs_index_dict['agent_csp']]
+if (not args.no_sensors) or (not args.no_trajectory):
+    if not os.path.exists(traj_name):
+        print("Generating Trajectory Data")
 
-            # TODO: should this be converted from env coordinates to SSP coordinates?
-            positions[mi, n, 0, 0] = env.state[0]
-            positions[mi, n, 0, 1] = env.state[1]
+        # Gridworld environment parametesr
+        params = {
+            'continuous': True,
+            'fov': args.fov,
+            'n_sensors': args.n_sensors,
+            'max_sensor_dist': args.max_dist,
+            'normalize_dist_sensors': False,
+            'movement_type': 'holonomic',
+            'seed': args.seed,
+            'map_style': args.map_style,
+            'map_size': args.maze_size,
+            'fixed_episode_length': False,  # Setting to false so location resets are not automatic
+            'episode_length': args.trajectory_steps,
+            'max_lin_vel': 5,
+            'max_ang_vel': 5,
+            'dt': 0.1,
+            'full_map_obs': False,
+            'pob': 0,
+            'n_grid_cells': 0,
+            'heading': 'none',
+            'location': 'none',
+            'goal_loc': 'none',
+            'goal_vec': 'none',
+            'bc_n_ring': 0,
+            'hd_n_cells': 0,
+            'goal_csp': False,
+            'goal_distance': 0,  # 0 means completely random, goal isn't used anyway
+            'agent_csp': True,
+            'csp_dim': args.dim,
+            'x_axis_vec': x_axis_sp,
+            'y_axis_vec': y_axis_sp,
+        }
 
-            for s in range(1, args.trajectory_steps):
+        obs_dict = generate_obs_dict(params)
+
+        positions = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, 2))
+        dist_sensors = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, args.n_sensors))
+
+        # spatial semantic pointers for position
+        ssps = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, args.dim))
+        # velocity in x and y
+        cartesian_vels = np.zeros((args.n_mazes, args.n_trajectories, args.trajectory_steps, 2))
+
+        def get_ssp_activation(pos):
+
+            return encode_point(pos[0] * args.ssp_scaling, pos[1] * args.ssp_scaling, x_axis_sp, y_axis_sp).v
+
+        for mi in range(args.n_mazes):
+            print("Map {} of {}".format(mi + 1, args.n_mazes))
+
+            env = GridWorldEnv(
+                map_array=coarse_mazes[mi, :, :],
+                observations=obs_dict,
+                movement_type=params['movement_type'],
+                max_lin_vel=params['max_lin_vel'],
+                max_ang_vel=params['max_ang_vel'],
+                continuous=params['continuous'],
+                max_steps=params['episode_length'],
+                fixed_episode_length=params['fixed_episode_length'],
+                dt=params['dt'],
+                screen_width=300,
+                screen_height=300,
+                # TODO: use these parameters appropriately, and save them with the dataset
+                # csp_scaling=ssp_scaling,  # multiply state by this value before creating a csp
+                # csp_offset=ssp_offset,  # subtract this value from state before creating a csp
+            )
+
+            agent = RandomTrajectoryAgent(obs_index_dict=env.obs_index_dict, n_sensors=args.n_sensors)
+
+            obs_index_dict = env.obs_index_dict
+
+            for n in range(args.n_trajectories):
+                print("Generating Trajectory {} of {}".format(n + 1, args.n_trajectories))
+
+                obs = env.reset(goal_distance=params['goal_distance'])
+
+                dist_sensors[mi, n, 0, :] = obs[env.obs_index_dict['dist_sensors']]
+                ssps[mi, n, 0, :] = obs[env.obs_index_dict['agent_csp']]
+
+                # TODO: should this be converted from env coordinates to SSP coordinates?
+                positions[mi, n, 0, 0] = env.state[0]
+                positions[mi, n, 0, 1] = env.state[1]
+
+                for s in range(1, args.trajectory_steps):
+                    action = agent.act(obs)
+
+                    cartesian_vels[mi, n, s - 1, 0] = action[0]
+                    cartesian_vels[mi, n, s - 1, 1] = action[1]
+
+                    obs, reward, done, info = env.step(action)
+
+                    dist_sensors[mi, n, s, :] = obs[env.obs_index_dict['dist_sensors']]
+                    ssps[mi, n, s, :] = obs[env.obs_index_dict['agent_csp']]  # TODO: make sure this observation is correct
+
+                    positions[mi, n, s, 0] = env.state[0]
+                    positions[mi, n, s, 1] = env.state[1]
+
+                # Purely for consistency, this action is not used
                 action = agent.act(obs)
 
-                cartesian_vels[mi, n, s - 1, 0] = action[0]
-                cartesian_vels[mi, n, s - 1, 1] = action[1]
+                cartesian_vels[mi, n, -1, 0] = action[0]
+                cartesian_vels[mi, n, -1, 1] = action[1]
 
-                obs, reward, done, info = env.step(action)
+        np.savez(
+            traj_name,
+            positions=positions,
+            dist_sensors=dist_sensors,
+            ssps=ssps,
+            cartesian_vels=cartesian_vels,
+            x_axis_vec=x_axis_vec,
+            y_axis_vec=y_axis_vec,
+            coarse_mazes=coarse_mazes,
+            # ssp_scaling=args.ssp_scaling,
+            # ssp_offset=args.ssp_offset,
+            # ssp_scaling=ssp_scaling,
+            # ssp_offset=ssp_offset,
+            # NOTE: this code assumes a 1 to 1 mapping of env coordinates to SSP coordinates
+            ssp_scaling=1,
+            ssp_offset=0,
+        )
 
-                dist_sensors[mi, n, s, :] = obs[env.obs_index_dict['dist_sensors']]
-                ssps[mi, n, s, :] = obs[env.obs_index_dict['agent_csp']]  # TODO: make sure this observation is correct
-
-                positions[mi, n, s, 0] = env.state[0]
-                positions[mi, n, s, 1] = env.state[1]
-
-            # Purely for consistency, this action is not used
-            action = agent.act(obs)
-
-            cartesian_vels[mi, n, -1, 0] = action[0]
-            cartesian_vels[mi, n, -1, 1] = action[1]
-
-    np.savez(
-        traj_name,
-        positions=positions,
-        dist_sensors=dist_sensors,
-        ssps=ssps,
-        cartesian_vels=cartesian_vels,
-        x_axis_vec=x_axis_vec,
-        y_axis_vec=y_axis_vec,
-        coarse_mazes=coarse_mazes,
-        # ssp_scaling=args.ssp_scaling,
-        # ssp_offset=args.ssp_offset,
-        # ssp_scaling=ssp_scaling,
-        # ssp_offset=ssp_offset,
-        # NOTE: this code assumes a 1 to 1 mapping of env coordinates to SSP coordinates
-        ssp_scaling=1,
-        ssp_offset=0,
-    )
-
-else:
-    print("Trajectory data already exists for these parameters")
+    else:
+        print("Trajectory data already exists for these parameters")
