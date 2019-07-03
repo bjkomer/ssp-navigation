@@ -171,11 +171,11 @@ class PolicyValidationSet(object):
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                 fig_truth = plot_path_predictions_image(
-                    directions=directions, coords=locs, wall_overlay=wall_overlay
+                    directions=directions.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                 )
 
                 fig_truth_quiver = plot_path_predictions(
-                    directions=directions, coords=locs, dcell=self.xs[1] - self.xs[0]
+                    directions=directions.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0]
                 )
 
                 # Record figures to tensorboard
@@ -194,11 +194,11 @@ class PolicyValidationSet(object):
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                 fig_truth = plot_path_predictions_image(
-                    directions=directions, coords=locs, wall_overlay=wall_overlay
+                    directions=directions.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                 )
 
                 fig_truth_quiver = plot_path_predictions(
-                    directions=directions, coords=locs, dcell=self.xs[1] - self.xs[0]
+                    directions=directions.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0]
                 )
 
                 yield fig_truth, fig_truth_quiver
@@ -221,20 +221,20 @@ class PolicyValidationSet(object):
                     wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                     fig_pred = plot_path_predictions_image(
-                        directions=outputs, coords=locs, wall_overlay=wall_overlay
+                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                     )
 
                     fig_pred_quiver = plot_path_predictions(
-                        directions=outputs, coords=locs, dcell=self.xs[1] - self.xs[0], wall_overlay=wall_overlay
+                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0], wall_overlay=wall_overlay
                     )
                 else:
 
                     fig_pred = plot_path_predictions(
-                        directions=outputs, coords=locs, type='colour'
+                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), type='colour'
                     )
 
                     fig_pred_quiver = plot_path_predictions(
-                        directions=outputs, coords=locs, dcell=self.xs[1] - self.xs[0]
+                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0]
                     )
 
                 # Record figures to tensorboard
@@ -261,20 +261,20 @@ class PolicyValidationSet(object):
                     wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                     fig_pred = plot_path_predictions_image(
-                        directions=outputs, coords=locs, wall_overlay=wall_overlay
+                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                     )
 
                     fig_pred_quiver = plot_path_predictions(
-                        directions=outputs, coords=locs, dcell=self.xs[1] - self.xs[0], wall_overlay=wall_overlay
+                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0], wall_overlay=wall_overlay
                     )
                 else:
 
                     fig_pred = plot_path_predictions(
-                        directions=outputs, coords=locs, type='colour'
+                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), type='colour'
                     )
 
                     fig_pred_quiver = plot_path_predictions(
-                        directions=outputs, coords=locs, dcell=self.xs[1] - self.xs[0]
+                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0]
                     )
 
                 yield fig_pred, fig_pred_quiver
