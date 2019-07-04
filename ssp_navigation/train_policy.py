@@ -146,13 +146,28 @@ elif args.spatial_encoding == 'random-proj':
     repr_dim = args.dim
 
 # input is maze, loc, goal ssps, output is 2D direction to move
-if args.n_hidden_layers > 1:
-    model = MLP(input_size=id_size + repr_dim * 2, hidden_size=args.hidden_size, output_size=2, n_layers=args.n_hidden_layers)
+if 'learned' in args.spatial_encoding:
+    model = LearnedEncoding(
+        input_size=repr_dim,
+        maze_id_size=id_size,
+        hidden_size=args.hidden_size,
+        output_size=2,
+        n_layers=args.n_hidden_layers
+    )
 else:
-    if 'learned' in args.spatial_encoding:
-        model = LearnedEncoding(input_size=repr_dim, maze_id_size=id_size, hidden_size=args.hidden_size, output_size=2)
-    else:
-        model = FeedForward(input_size=id_size + repr_dim * 2, hidden_size=args.hidden_size, output_size=2)
+    model = MLP(
+        input_size=id_size + repr_dim * 2,
+        hidden_size=args.hidden_size,
+        output_size=2,
+        n_layers=args.n_hidden_layers
+    )
+# if args.n_hidden_layers > 1:
+#     model = MLP(input_size=id_size + repr_dim * 2, hidden_size=args.hidden_size, output_size=2, n_layers=args.n_hidden_layers)
+# else:
+#     if 'learned' in args.spatial_encoding:
+#         model = LearnedEncoding(input_size=repr_dim, maze_id_size=id_size, hidden_size=args.hidden_size, output_size=2)
+#     else:
+#         model = FeedForward(input_size=id_size + repr_dim * 2, hidden_size=args.hidden_size, output_size=2)
 
 if args.load_saved_model:
     if args.spatial_encoding == 'frozen-learned':
