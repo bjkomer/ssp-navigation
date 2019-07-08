@@ -174,13 +174,13 @@ class PolicyValidationSet(object):
                     directions=directions.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                 )
 
-                fig_truth_quiver = plot_path_predictions(
-                    directions=directions.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0]
-                )
+                # fig_truth_quiver = plot_path_predictions(
+                #     directions=directions.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0]
+                # )
 
                 # Record figures to tensorboard
                 writer.add_figure('v{}/ground truth'.format(i), fig_truth)
-                writer.add_figure('v{}/ground truth quiver'.format(i), fig_truth_quiver)
+                # writer.add_figure('v{}/ground truth quiver'.format(i), fig_truth_quiver)
 
     # Note that this must be a separate function because the previous cannot contain yields
     def run_ground_truth_generator(self):
@@ -224,22 +224,22 @@ class PolicyValidationSet(object):
                         directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                     )
 
-                    fig_pred_quiver = plot_path_predictions(
-                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0], wall_overlay=wall_overlay
-                    )
+                    # fig_pred_quiver = plot_path_predictions(
+                    #     directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0], wall_overlay=wall_overlay
+                    # )
                 else:
 
                     fig_pred = plot_path_predictions(
                         directions=outputs.detach().numpy(), coords=locs.detach().numpy(), type='colour'
                     )
 
-                    fig_pred_quiver = plot_path_predictions(
-                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0]
-                    )
+                    # fig_pred_quiver = plot_path_predictions(
+                    #     directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0]
+                    # )
 
                 # Record figures to tensorboard
                 writer.add_figure('v{}/viz set predictions'.format(i), fig_pred, epoch)
-                writer.add_figure('v{}/viz set predictions quiver'.format(i), fig_pred_quiver, epoch)
+                # writer.add_figure('v{}/viz set predictions quiver'.format(i), fig_pred_quiver, epoch)
                 writer.add_scalar(tag='viz_loss/{}'.format(i), scalar_value=loss.data.item(), global_step=epoch)
 
     # Note that this must be a separate function because the previous cannot contain yields
