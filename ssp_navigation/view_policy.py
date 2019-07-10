@@ -8,6 +8,7 @@ from ssp_navigation.utils.datasets import MazeDataset
 import nengo.spa as spa
 import matplotlib.pyplot as plt
 from ssp_navigation.utils.path import plot_path_predictions_image
+from spatial_semantic_pointers.utils import encode_point
 
 # TODO: make it so the user can click on the image, and the location clicked is the goal
 
@@ -40,6 +41,9 @@ parser.add_argument('--load-saved-model', type=str, default='', help='Saved mode
 
 args = parser.parse_args()
 
+res = 64
+subsample = 1
+
 data = np.load(args.dataset)
 
 rng = np.random.RandomState(seed=args.seed)
@@ -53,7 +57,10 @@ fine_mazes = data['fine_mazes']
 solved_mazes = data['solved_mazes']
 
 # n_mazes by dim
-maze_sps = data['maze_sps']
+# maze_sps = data['maze_sps']
+
+# FIXME: temp hardcoding for hierarchical policy
+maze_sps = np.eye(5, 5)
 
 # n_mazes by n_goals by dim
 goal_sps = data['goal_sps']
@@ -61,8 +68,21 @@ goal_sps = data['goal_sps']
 # n_mazes by n_goals by 2
 goals = data['goals']
 
+# xs = data['xs']
+# ys = data['ys']
+
+x_axis_vec = data['x_axis_sp']
+y_axis_vec = data['y_axis_sp']
+x_axis_sp = spa.SemanticPointer(data=x_axis_vec)
+y_axis_sp = spa.SemanticPointer(data=y_axis_vec)
+
+xs = np.linspace(-5, 5, res)
+ys = np.linspace(-5, 5, res)
+
 n_goals = goals.shape[1]
 n_mazes = fine_mazes.shape[0]
+
+wall_overlay = fine_mazes[args.map_index, :].flatten()
 
 
 
@@ -120,6 +140,56 @@ if args.load_saved_model:
 
 model.eval()
 
+n_samples = res * res
+
+# Visualization
+viz_locs = np.zeros((n_samples, 2))
+viz_goals = np.zeros((n_samples, 2))
+viz_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
+viz_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
+viz_output_dirs = np.ones((n_samples, 2))
+viz_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+
+# Generate data so each batch contains a single maze and goal
+si = 0  # sample index, increments each time
+
+
+
+for xi in range(0, res, subsample):
+    for yi in range(0, res, subsample):
+        loc_x = xs[xi]
+        loc_y = ys[yi]
+
+        viz_locs[si, 0] = loc_x
+        viz_locs[si, 1] = loc_y
+        # viz_goals[si, :] = goals[mi, gi, :]
+        if args.spatial_encoding == 'ssp':
+            viz_loc_sps[si, :] = encode_point(loc_x, loc_y, x_axis_sp, y_axis_sp).v
+        # elif args.spatial_encoding == 'random':
+        #     viz_loc_sps[si, :] = encode_random(loc_x, loc_y, dim)
+        elif args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+            viz_loc_sps[si, :] = np.array([loc_x, loc_y])
+        # elif args.spatial_encoding == '2d-normalized':
+        #     viz_loc_sps[si, :] = ((np.array([loc_x, loc_y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
+        # elif args.spatial_encoding == 'one-hot':
+        #     viz_loc_sps[si, :] = encode_one_hot(x=loc_x, y=loc_y, xs=xso, ys=yso)
+        # elif args.spatial_encoding == 'trig':
+        #     viz_loc_sps[si, :] = encode_trig(x=loc_x, y=loc_y, dim=dim)
+        # elif args.spatial_encoding == 'random-trig':
+        #     viz_loc_sps[si, :] = encode_random_trig(x=loc_x, y=loc_y, dim=dim)
+        # elif args.spatial_encoding == 'random-proj':
+        #     viz_loc_sps[si, :] = encode_projection(x=loc_x, y=loc_y, dim=dim)
+
+        # viz_goal_sps[si, :] = goal_sps[mi, gi, :]
+        #
+        # viz_output_dirs[si, :] = solved_mazes[mi, gi, xi, yi, :]
+
+        viz_maze_sps[si, :] = maze_sps[args.map_index]
+
+        si += 1
+
+
+
 
 
 
@@ -129,26 +199,59 @@ ax = fig.add_subplot(111)
 # initialize image with correct dimensions
 ax.imshow(np.zeros((64, 64)), cmap='hsv', interpolation=None)
 
+
+def image_coord_to_maze_coord(x, y, res=64):
+    x_img = (x / res) * (xs[-1] - xs[0]) + xs[0]
+    y_img = (y / res) * (ys[-1] - ys[0]) + ys[0]
+
+    return (x_img, y_img)
+
+
 def on_click(event):
 
-    # TODO: need to make sure these coordinates are in the right reference frame, and translate them if they are not
-    goal = (event.xdata, event.ydata)
-    print(goal)
+    if (event.xdata is not None) and (event.ydata is not None):
 
-    # for i, data in enumerate(self.vizloader):
-    #
-    #     maze_loc_goal_ssps, directions, locs, goals = data
-    #
-    #     outputs = model(maze_loc_goal_ssps)
-    #
-    #     # loss = criterion(outputs, directions)
-    #
-    #     wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
-    #
-    #     fig_pred = plot_path_predictions_image(
-    #         ax=ax,
-    #         directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
-    #     )
+        # TODO: need to make sure these coordinates are in the right reference frame, and translate them if they are not
+        # goal = (event.xdata, event.ydata)
+        goal = image_coord_to_maze_coord(event.xdata, event.ydata)
+        print(goal)
+
+        goal_ssp = encode_point(goal[0], goal[1], x_axis_sp, y_axis_sp).v
+
+        for i in range(res*res):
+            viz_goal_sps[i, :] = goal_ssp
+
+
+        dataset_viz = MazeDataset(
+            maze_ssp=viz_maze_sps,
+            loc_ssps=viz_loc_sps,
+            goal_ssps=viz_goal_sps,
+            locs=viz_locs,
+            goals=viz_goals,
+            direction_outputs=viz_output_dirs,  # unused, but should be for wall overlay
+        )
+
+        # Each batch will contain the samples for one maze. Must not be shuffled
+        vizloader = torch.utils.data.DataLoader(
+            dataset_viz, batch_size=res*res, shuffle=False, num_workers=0,
+        )
+
+        for i, data in enumerate(vizloader):
+
+            maze_loc_goal_ssps, directions, locs, goals = data
+
+            outputs = model(maze_loc_goal_ssps)
+
+            # loss = criterion(outputs, directions)
+
+            # wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+
+            fig_pred = plot_path_predictions_image(
+                ax=ax,
+                directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
+            )
+            fig.canvas.draw()
+
 
 fig.canvas.mpl_connect('button_press_event', on_click)
 plt.show()

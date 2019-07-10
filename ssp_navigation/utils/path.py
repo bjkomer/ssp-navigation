@@ -147,10 +147,11 @@ def plot_path_predictions_image(directions, coords, name='', ax=None, wall_overl
 
     print("rmse", rmse)
 
-    fig.suptitle("RMSE: {}".format(rmse))
+    if fig is not None:
+        fig.suptitle("RMSE: {}".format(rmse))
 
-    if name:
-        fig.suptitle(name)
+        if name:
+            fig.suptitle(name)
 
     return fig
 
