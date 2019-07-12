@@ -76,8 +76,11 @@ y_axis_vec = data['y_axis_sp']
 x_axis_sp = spa.SemanticPointer(data=x_axis_vec)
 y_axis_sp = spa.SemanticPointer(data=y_axis_vec)
 
-xs = np.linspace(-5, 5, res)
-ys = np.linspace(-5, 5, res)
+limit_low = 0
+limit_high = 13
+
+xs = np.linspace(limit_low, limit_high, res)
+ys = np.linspace(limit_low, limit_high, res)
 
 n_goals = goals.shape[1]
 n_mazes = fine_mazes.shape[0]
@@ -145,8 +148,8 @@ n_samples = res * res
 # Visualization
 viz_locs = np.zeros((n_samples, 2))
 viz_goals = np.zeros((n_samples, 2))
-viz_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
-viz_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
+viz_loc_sps = np.zeros((n_samples, repr_dim))
+viz_goal_sps = np.zeros((n_samples, repr_dim))
 viz_output_dirs = np.ones((n_samples, 2))
 viz_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
 
@@ -213,10 +216,14 @@ def on_click(event):
 
         # TODO: need to make sure these coordinates are in the right reference frame, and translate them if they are not
         # goal = (event.xdata, event.ydata)
-        goal = image_coord_to_maze_coord(event.xdata, event.ydata)
+        # goal = image_coord_to_maze_coord(event.xdata, event.ydata)
+        goal = image_coord_to_maze_coord(event.ydata, event.xdata)
         print(goal)
 
-        goal_ssp = encode_point(goal[0], goal[1], x_axis_sp, y_axis_sp).v
+        if args.spatial_encoding == 'ssp':
+            goal_ssp = encode_point(goal[0], goal[1], x_axis_sp, y_axis_sp).v
+        else:
+            goal_ssp = np.array([goal[0], goal[1]])
 
         for i in range(res*res):
             viz_goal_sps[i, :] = goal_ssp
@@ -242,6 +249,7 @@ def on_click(event):
 
             outputs = model(maze_loc_goal_ssps)
 
+            # NOTE: no ground truth is currently given, so no loss or RMSE can be calculated
             # loss = criterion(outputs, directions)
 
             # wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
@@ -250,6 +258,7 @@ def on_click(event):
                 ax=ax,
                 directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
             )
+            ax.set_title("No ground truth given for RMSE")
             fig.canvas.draw()
 
 

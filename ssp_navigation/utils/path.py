@@ -152,6 +152,8 @@ def plot_path_predictions_image(directions, coords, name='', ax=None, wall_overl
 
         if name:
             fig.suptitle(name)
+    else:
+        ax.set_title("RMSE: {}".format(rmse))
 
     return fig
 
