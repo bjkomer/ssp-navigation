@@ -103,17 +103,26 @@ else:
 # Create a validation/visualization set to run periodically while training and at the end
 # validation_set = ValidationSet(data=data, maze_indices=np.arange(n_mazes), goal_indices=[0])
 
-# quick workaround for the single_maze tests
-if 'single_maze' in args.logdir or '1maze' in args.logdir:
-    validation_set = PolicyValidationSet(
-        data=data, maze_sps=maze_sps, maze_indices=[0], goal_indices=[0, 1, 2, 3], subsample=args.subsample,
-        spatial_encoding=args.spatial_encoding,
-    )
+# Set up number of mazes/goals to view in the viz set based on how many are available
+if n_mazes < 4:
+    maze_indices = list(np.arange(n_mazes))
+    if n_goals < 4:
+        goal_indices = list(np.arange(n_goals))
+    else:
+        goal_indices = [0, 1, 2, 3]
 else:
-    validation_set = PolicyValidationSet(
-        data=data, maze_sps=maze_sps, maze_indices=[0, 1, 2, 3], goal_indices=[0, 1], subsample=args.subsample,
-        spatial_encoding=args.spatial_encoding,
-    )
+    maze_indices = [0, 1, 2, 3]
+    if n_goals < 2:
+        goal_indices = [0]
+    else:
+        goal_indices = [0, 1]
+
+
+validation_set = PolicyValidationSet(
+    data=data, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
+    spatial_encoding=args.spatial_encoding,
+)
+
 
 trainloader = create_policy_dataloader(data=data, n_samples=args.n_train_samples, maze_sps=maze_sps, args=args)
 
