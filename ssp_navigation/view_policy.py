@@ -57,10 +57,10 @@ fine_mazes = data['fine_mazes']
 solved_mazes = data['solved_mazes']
 
 # n_mazes by dim
-# maze_sps = data['maze_sps']
+maze_sps = data['maze_sps']
 
 # FIXME: temp hardcoding for hierarchical policy
-maze_sps = np.eye(5, 5)
+# maze_sps = np.eye(5, 5)
 
 # n_mazes by n_goals by dim
 goal_sps = data['goal_sps']
