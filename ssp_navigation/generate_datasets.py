@@ -287,6 +287,8 @@ if (not args.no_sensors):
 
         # Generate sensor readings for every location in xs and ys in each maze
         for mi in range(n_mazes):
+            # Print that replaces the line each time
+            print('\x1b[2K\r Map {0} of {1}'.format(mi+1, n_mazes), end="\r")
             # NOTE: only need to create the env if other 'sensors' such as boundary cells are used
             # # Generate a GridWorld environment corresponding to the current maze in order to calculate sensor measurements
             # env = GridWorldEnv(
@@ -319,6 +321,8 @@ if (not args.no_sensors):
                             max_sensor_dist=args.max_dist,
                             debug_value=0,
                         ) * sensor_scaling
+
+        print("Sensor data generated for {0} mazes".format(n_mazes))
 
         np.savez(
             sensor_name,
@@ -407,6 +411,8 @@ if (not args.no_sensors) or (not args.no_trajectory):
             return encode_point(pos[0] * args.ssp_scaling, pos[1] * args.ssp_scaling, x_axis_sp, y_axis_sp).v
 
         for mi in range(args.n_mazes):
+            # # Print that replaces the line each time
+            # print('\x1b[2K\r Map {} of {}'.format(mi + 1, args.n_mazes), end="\r")
             print("Map {} of {}".format(mi + 1, args.n_mazes))
 
             env = GridWorldEnv(
@@ -431,7 +437,9 @@ if (not args.no_sensors) or (not args.no_trajectory):
             obs_index_dict = env.obs_index_dict
 
             for n in range(args.n_trajectories):
-                print("Generating Trajectory {} of {}".format(n + 1, args.n_trajectories))
+                # Print that replaces the line each time
+                print('\x1b[2K\r Generating Trajectory {} of {}'.format(n + 1, args.n_trajectories), end="\r")
+                # print("Generating Trajectory {} of {}".format(n + 1, args.n_trajectories))
 
                 obs = env.reset(goal_distance=params['goal_distance'])
 
