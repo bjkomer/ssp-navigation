@@ -87,8 +87,13 @@ env_size = coarse_maps.shape[1]
 # shape of dist_sensors is (n_maps, n_trajectories, n_steps, n_sensors)
 n_sensors = data['dist_sensors'].shape[3]
 
-# shape of ssps is (n_maps, n_trajectories, n_steps, dim)
-dim = data['ssps'].shape[3]
+if args.encoding == 'ssp':
+    # shape of ssps is (n_maps, n_trajectories, n_steps, dim)
+    dim = data['ssps'].shape[3]
+elif args.encoding == '2d':
+    dim = 2
+else:
+    raise NotImplementedError
 
 
 limit_low = -ssp_offset * ssp_scaling
