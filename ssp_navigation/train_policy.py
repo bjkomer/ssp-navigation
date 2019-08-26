@@ -297,5 +297,10 @@ if args.logdir != '':
     torch.save(model.state_dict(), os.path.join(save_dir, 'model.pt'))
 
     params = vars(args)
+
+    # if random-sp is used as maze-id-type, then save the sps used as well
+    if args.maze_id_type == 'random-sp':
+        params['maze_sps'] = [list(maze_sps[mi, :]) for mi in range(n_mazes)]
+
     with open(os.path.join(save_dir, "params.json"), "w") as f:
         json.dump(params, f)

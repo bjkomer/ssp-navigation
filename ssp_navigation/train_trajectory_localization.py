@@ -47,8 +47,8 @@ args = parser.parse_args()
 
 dataset_file = os.path.join(args.dataset_dir, 'trajectory_dataset.npz')
 
-variant_folder = '{}_rec{}_lin{}_trajlen{}_dropout{}'.format(
-    args.encoding, args.lstm_hidden_size, args.hidden_size, args.trajectory_length, args.dropout,
+variant_folder = '{}_rec{}_lin{}_trajlen{}_samples{}_dropout{}'.format(
+    args.encoding, args.lstm_hidden_size, args.hidden_size, args.trajectory_length, args.n_samples, args.dropout,
 )
 
 if args.variant_subfolder != '':
