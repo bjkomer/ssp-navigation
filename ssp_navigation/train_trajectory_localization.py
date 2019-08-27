@@ -171,6 +171,19 @@ for epoch in range(n_epochs):
             epoch=epoch,
         )
 
+        if epoch > 0:
+            # Save a copy of the model at this stage
+            if args.encoding == 'ssp':
+                torch.save(
+                    model.state_dict(),
+                    os.path.join(save_dir, 'ssp_trajectory_localization_model_epoch_{}.pt'.format(epoch))
+                )
+            elif args.encoding == '2d':
+                torch.save(
+                    model.state_dict(),
+                    os.path.join(save_dir, '2d_trajectory_localization_model_epoch_{}.pt'.format(epoch))
+                )
+
     avg_mse_loss = 0
     avg_cosine_loss = 0
     n_batches = 0
