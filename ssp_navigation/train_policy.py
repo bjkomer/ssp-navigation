@@ -21,7 +21,7 @@ parser.add_argument('--viz-period', type=int, default=50, help='number of epochs
 parser.add_argument('--val-period', type=int, default=25, help='number of epochs before a test/validation set run')
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
-                        'ssp', 'random', '2d', '2d-normalized', 'one-hot',
+                        'ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                         'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
                     ],
                     help='coordinate encoding for agent location and goal')
@@ -148,6 +148,8 @@ elif args.spatial_encoding == '2d-normalized':
 elif args.spatial_encoding == 'one-hot':
     repr_dim = int(np.sqrt(args.dim))**2
 elif args.spatial_encoding == 'trig':
+    repr_dim = args.dim
+elif args.spatial_encoding == 'hex-trig':
     repr_dim = args.dim
 elif args.spatial_encoding == 'random-trig':
     repr_dim = args.dim

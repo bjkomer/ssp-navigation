@@ -7,7 +7,7 @@ import torch.utils.data as data
 from spatial_semantic_pointers.utils import encode_point, encode_random, ssp_to_loc, ssp_to_loc_v, get_heatmap_vectors
 from spatial_semantic_pointers.plots import plot_predictions, plot_predictions_v
 from ssp_navigation.utils.datasets import MazeDataset
-from ssp_navigation.utils.encodings import encode_one_hot, encode_projection, encode_trig, encode_random_trig
+from ssp_navigation.utils.encodings import encode_one_hot, encode_projection, encode_trig, encode_random_trig, encode_hex_trig
 from ssp_navigation.utils.path import plot_path_predictions, plot_path_predictions_image
 import matplotlib.pyplot as plt
 
@@ -72,6 +72,11 @@ class PolicyValidationSet(object):
             for ni in range(goal_sps.shape[0]):
                 for gi in range(goal_sps.shape[1]):
                     goal_sps[ni, gi, :] = encode_random_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
+        elif spatial_encoding == 'hex-trig':
+            goal_sps = np.zeros((n_mazes, n_goals, dim))
+            for ni in range(goal_sps.shape[0]):
+                for gi in range(goal_sps.shape[1]):
+                    goal_sps[ni, gi, :] = encode_hex_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
         elif spatial_encoding == 'random-proj':
             goal_sps = np.zeros((n_mazes, n_goals, dim))
             for ni in range(goal_sps.shape[0]):
@@ -126,6 +131,8 @@ class PolicyValidationSet(object):
                             viz_loc_sps[si, :] = encode_trig(x=loc_x, y=loc_y, dim=dim)
                         elif spatial_encoding == 'random-trig':
                             viz_loc_sps[si, :] = encode_random_trig(x=loc_x, y=loc_y, dim=dim)
+                        elif spatial_encoding == 'hex-trig':
+                            viz_loc_sps[si, :] = encode_hex_trig(x=loc_x, y=loc_y, dim=dim)
                         elif spatial_encoding == 'random-proj':
                             viz_loc_sps[si, :] = encode_projection(x=loc_x, y=loc_y, dim=dim)
 
@@ -337,6 +344,11 @@ def create_policy_dataloader(data, n_samples, maze_sps, args):
         for ni in range(n_mazes):
             for gi in range(n_goals):
                 goal_sps[ni, gi, :] = encode_random_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=args.dim)
+    elif args.spatial_encoding == 'hex-trig':
+        goal_sps = np.zeros((n_mazes, n_goals, args.dim))
+        for ni in range(n_mazes):
+            for gi in range(n_goals):
+                goal_sps[ni, gi, :] = encode_hex_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=args.dim)
     elif args.spatial_encoding == 'random-proj':
         goal_sps = np.zeros((n_mazes, n_goals, args.dim))
         for ni in range(n_mazes):
@@ -398,6 +410,8 @@ def create_policy_dataloader(data, n_samples, maze_sps, args):
             train_loc_sps[n, :] = encode_trig(x=loc_x, y=loc_y, dim=args.dim)
         elif args.spatial_encoding == 'random-trig':
             train_loc_sps[n, :] = encode_random_trig(x=loc_x, y=loc_y, dim=args.dim)
+        elif args.spatial_encoding == 'hex-trig':
+            train_loc_sps[n, :] = encode_hex_trig(x=loc_x, y=loc_y, dim=args.dim)
         elif args.spatial_encoding == 'random-proj':
             train_loc_sps[n, :] = encode_projection(x=loc_x, y=loc_y, dim=args.dim)
         train_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
