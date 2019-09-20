@@ -14,9 +14,12 @@ import matplotlib.pyplot as plt
 
 class PolicyValidationSet(object):
 
-    def __init__(self, data, maze_sps, maze_indices, goal_indices, subsample=2, spatial_encoding='ssp'):
-        x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
-        y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
+    def __init__(self, data, dim, maze_sps, maze_indices, goal_indices, subsample=2,
+                 encoding_func=None,
+                 # spatial_encoding='ssp',
+                 ):
+        # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
+        # y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
 
         # n_mazes by res by res
         fine_mazes = data['fine_mazes']
@@ -33,57 +36,62 @@ class PolicyValidationSet(object):
 
         n_mazes = data['goal_sps'].shape[0]
         n_goals = data['goal_sps'].shape[1]
-        dim = data['goal_sps'].shape[2]
+        # dim = data['goal_sps'].shape[2]
 
         # NOTE: this code is assuming xs as ys are the same
         assert(np.all(data['xs'] == data['ys']))
         limit_low = data['xs'][0]
         limit_high = data['xs'][1]
 
-        # NOTE: only used for one-hot encoded location representation case
-        xso = np.linspace(limit_low, limit_high, int(np.sqrt(dim)))
-        yso = np.linspace(limit_low, limit_high, int(np.sqrt(dim)))
+        # # NOTE: only used for one-hot encoded location representation case
+        # xso = np.linspace(limit_low, limit_high, int(np.sqrt(dim)))
+        # yso = np.linspace(limit_low, limit_high, int(np.sqrt(dim)))
 
-        # n_mazes by n_goals by dim
-        if spatial_encoding == 'ssp':
-            goal_sps = data['goal_sps']
-        elif spatial_encoding == 'random':
-            goal_sps = np.zeros_like(data['goal_sps'])
-            for ni in range(goal_sps.shape[0]):
-                for gi in range(goal_sps.shape[1]):
-                    goal_sps[ni, gi, :] = encode_random(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        elif spatial_encoding == '2d' or spatial_encoding == 'learned' or spatial_encoding == 'frozen-learned':
-            goal_sps = goals.copy()
-        elif spatial_encoding == '2d-normalized':
-            goal_sps = goals.copy()
-            goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
-        elif spatial_encoding == 'one-hot':
-            goal_sps = np.zeros((n_mazes, n_goals, len(xso) * len(yso)))
-            for ni in range(goal_sps.shape[0]):
-                for gi in range(goal_sps.shape[1]):
-                    goal_sps[ni, gi, :] = encode_one_hot(x=goals[ni, gi, 0], y=goals[ni, gi, 1], xs=xso, ys=yso)
-        elif spatial_encoding == 'trig':
-            goal_sps = np.zeros((n_mazes, n_goals, dim))
-            for ni in range(goal_sps.shape[0]):
-                for gi in range(goal_sps.shape[1]):
-                    goal_sps[ni, gi, :] = encode_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        elif spatial_encoding == 'random-trig':
-            goal_sps = np.zeros((n_mazes, n_goals, dim))
-            for ni in range(goal_sps.shape[0]):
-                for gi in range(goal_sps.shape[1]):
-                    goal_sps[ni, gi, :] = encode_random_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        elif spatial_encoding == 'hex-trig':
-            goal_sps = np.zeros((n_mazes, n_goals, dim))
-            for ni in range(goal_sps.shape[0]):
-                for gi in range(goal_sps.shape[1]):
-                    goal_sps[ni, gi, :] = encode_hex_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        elif spatial_encoding == 'random-proj':
-            goal_sps = np.zeros((n_mazes, n_goals, dim))
-            for ni in range(goal_sps.shape[0]):
-                for gi in range(goal_sps.shape[1]):
-                    goal_sps[ni, gi, :] = encode_projection(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        else:
-            raise NotImplementedError
+        goal_sps = np.zeros((n_mazes, n_goals, dim))
+        for ni in range(goal_sps.shape[0]):
+            for gi in range(goal_sps.shape[1]):
+                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+
+        # # n_mazes by n_goals by dim
+        # if spatial_encoding == 'ssp':
+        #     goal_sps = data['goal_sps']
+        # elif spatial_encoding == 'random':
+        #     goal_sps = np.zeros_like(data['goal_sps'])
+        #     for ni in range(goal_sps.shape[0]):
+        #         for gi in range(goal_sps.shape[1]):
+        #             goal_sps[ni, gi, :] = encode_random(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
+        # elif spatial_encoding == '2d' or spatial_encoding == 'learned' or spatial_encoding == 'frozen-learned':
+        #     goal_sps = goals.copy()
+        # elif spatial_encoding == '2d-normalized':
+        #     goal_sps = goals.copy()
+        #     goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+        # elif spatial_encoding == 'one-hot':
+        #     goal_sps = np.zeros((n_mazes, n_goals, len(xso) * len(yso)))
+        #     for ni in range(goal_sps.shape[0]):
+        #         for gi in range(goal_sps.shape[1]):
+        #             goal_sps[ni, gi, :] = encode_one_hot(x=goals[ni, gi, 0], y=goals[ni, gi, 1], xs=xso, ys=yso)
+        # elif spatial_encoding == 'trig':
+        #     goal_sps = np.zeros((n_mazes, n_goals, dim))
+        #     for ni in range(goal_sps.shape[0]):
+        #         for gi in range(goal_sps.shape[1]):
+        #             goal_sps[ni, gi, :] = encode_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
+        # elif spatial_encoding == 'random-trig':
+        #     goal_sps = np.zeros((n_mazes, n_goals, dim))
+        #     for ni in range(goal_sps.shape[0]):
+        #         for gi in range(goal_sps.shape[1]):
+        #             goal_sps[ni, gi, :] = encode_random_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
+        # elif spatial_encoding == 'hex-trig':
+        #     goal_sps = np.zeros((n_mazes, n_goals, dim))
+        #     for ni in range(goal_sps.shape[0]):
+        #         for gi in range(goal_sps.shape[1]):
+        #             goal_sps[ni, gi, :] = encode_hex_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim) #TODO: add frequency option
+        # elif spatial_encoding == 'random-proj':
+        #     goal_sps = np.zeros((n_mazes, n_goals, dim))
+        #     for ni in range(goal_sps.shape[0]):
+        #         for gi in range(goal_sps.shape[1]):
+        #             goal_sps[ni, gi, :] = encode_projection(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
+        # else:
+        #     raise NotImplementedError
 
         self.xs = data['xs']
         self.ys = data['ys']
@@ -117,24 +125,27 @@ class PolicyValidationSet(object):
                         viz_locs[si, 0] = loc_x
                         viz_locs[si, 1] = loc_y
                         viz_goals[si, :] = goals[mi, gi, :]
-                        if spatial_encoding == 'ssp':
-                            viz_loc_sps[si, :] = encode_point(loc_x, loc_y, x_axis_sp, y_axis_sp).v
-                        elif spatial_encoding == 'random':
-                            viz_loc_sps[si, :] = encode_random(loc_x, loc_y, dim)
-                        elif spatial_encoding == '2d' or spatial_encoding == 'learned' or spatial_encoding == 'frozen-learned':
-                            viz_loc_sps[si, :] = np.array([loc_x, loc_y])
-                        elif spatial_encoding == '2d-normalized':
-                            viz_loc_sps[si, :] = ((np.array([loc_x, loc_y]) - limit_low)*2 / (limit_high - limit_low)) - 1
-                        elif spatial_encoding == 'one-hot':
-                            viz_loc_sps[si, :] = encode_one_hot(x=loc_x, y=loc_y, xs=xso, ys=yso)
-                        elif spatial_encoding == 'trig':
-                            viz_loc_sps[si, :] = encode_trig(x=loc_x, y=loc_y, dim=dim)
-                        elif spatial_encoding == 'random-trig':
-                            viz_loc_sps[si, :] = encode_random_trig(x=loc_x, y=loc_y, dim=dim)
-                        elif spatial_encoding == 'hex-trig':
-                            viz_loc_sps[si, :] = encode_hex_trig(x=loc_x, y=loc_y, dim=dim)
-                        elif spatial_encoding == 'random-proj':
-                            viz_loc_sps[si, :] = encode_projection(x=loc_x, y=loc_y, dim=dim)
+
+                        viz_loc_sps[si, :] = encoding_func(x=loc_x, y=loc_y)
+
+                        # if spatial_encoding == 'ssp':
+                        #     viz_loc_sps[si, :] = encode_point(loc_x, loc_y, x_axis_sp, y_axis_sp).v
+                        # elif spatial_encoding == 'random':
+                        #     viz_loc_sps[si, :] = encode_random(loc_x, loc_y, dim)
+                        # elif spatial_encoding == '2d' or spatial_encoding == 'learned' or spatial_encoding == 'frozen-learned':
+                        #     viz_loc_sps[si, :] = np.array([loc_x, loc_y])
+                        # elif spatial_encoding == '2d-normalized':
+                        #     viz_loc_sps[si, :] = ((np.array([loc_x, loc_y]) - limit_low)*2 / (limit_high - limit_low)) - 1
+                        # elif spatial_encoding == 'one-hot':
+                        #     viz_loc_sps[si, :] = encode_one_hot(x=loc_x, y=loc_y, xs=xso, ys=yso)
+                        # elif spatial_encoding == 'trig':
+                        #     viz_loc_sps[si, :] = encode_trig(x=loc_x, y=loc_y, dim=dim)
+                        # elif spatial_encoding == 'random-trig':
+                        #     viz_loc_sps[si, :] = encode_random_trig(x=loc_x, y=loc_y, dim=dim)
+                        # elif spatial_encoding == 'hex-trig':
+                        #     viz_loc_sps[si, :] = encode_hex_trig(x=loc_x, y=loc_y, dim=dim)
+                        # elif spatial_encoding == 'random-proj':
+                        #     viz_loc_sps[si, :] = encode_projection(x=loc_x, y=loc_y, dim=dim)
 
                         viz_goal_sps[si, :] = goal_sps[mi, gi, :]
 
@@ -287,12 +298,12 @@ class PolicyValidationSet(object):
                 yield fig_pred, fig_pred_quiver
 
 
-def create_policy_dataloader(data, n_samples, maze_sps, args):
-    x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
-    y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
+def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func):
+    # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
+    # y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
 
     # n_mazes by size by size
-    coarse_mazes = data['coarse_mazes']
+    # coarse_mazes = data['coarse_mazes']
 
     # n_mazes by res by res
     fine_mazes = data['fine_mazes']
@@ -317,45 +328,16 @@ def create_policy_dataloader(data, n_samples, maze_sps, args):
     yso = np.linspace(ys[0], ys[-1], int(np.sqrt(args.dim)))
 
     # n_mazes by n_goals by dim
-    if args.spatial_encoding == 'ssp':
-        goal_sps = data['goal_sps']
-    elif args.spatial_encoding == 'random':
-        goal_sps = np.zeros((n_mazes, n_goals, args.dim))
-        for ni in range(n_mazes):
-            for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encode_random(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=args.dim)
-    elif args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+    if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
         goal_sps = goals.copy()
     elif args.spatial_encoding == '2d-normalized':
         goal_sps = goals.copy()
         goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
-    elif args.spatial_encoding == 'one-hot':
-        goal_sps = np.zeros((n_mazes, n_goals, len(xso)*len(yso)))
-        for ni in range(n_mazes):
-            for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encode_one_hot(x=goals[ni, gi, 0], y=goals[ni, gi, 1], xs=xso, ys=yso)
-    elif args.spatial_encoding == 'trig':
-        goal_sps = np.zeros((n_mazes, n_goals, args.dim))
-        for ni in range(n_mazes):
-            for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encode_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=args.dim)
-    elif args.spatial_encoding == 'random-trig':
-        goal_sps = np.zeros((n_mazes, n_goals, args.dim))
-        for ni in range(n_mazes):
-            for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encode_random_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=args.dim)
-    elif args.spatial_encoding == 'hex-trig':
-        goal_sps = np.zeros((n_mazes, n_goals, args.dim))
-        for ni in range(n_mazes):
-            for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encode_hex_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=args.dim)
-    elif args.spatial_encoding == 'random-proj':
-        goal_sps = np.zeros((n_mazes, n_goals, args.dim))
-        for ni in range(n_mazes):
-            for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encode_projection(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=args.dim)
     else:
-        raise NotImplementedError
+        goal_sps = np.zeros((n_mazes, n_goals, args.dim))
+        for ni in range(n_mazes):
+            for gi in range(n_goals):
+                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
 
     if 'xs' in data.keys():
         xs = data['xs']
@@ -396,24 +378,26 @@ def create_policy_dataloader(data, n_samples, maze_sps, args):
         train_locs[n, 1] = loc_y
         train_goals[n, :] = goals[maze_index, goal_index, :]
 
-        if args.spatial_encoding == 'ssp':
-            train_loc_sps[n, :] = encode_point(loc_x, loc_y, x_axis_sp, y_axis_sp).v
-        elif args.spatial_encoding == 'random':
-            train_loc_sps[n, :] = encode_random(loc_x, loc_y, args.dim)
-        elif args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
-            train_loc_sps[n, :] = np.array([loc_x, loc_y])
-        elif args.spatial_encoding == '2d-normalized':
-            train_loc_sps[n, :] = ((np.array([loc_x, loc_y]) - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
-        elif args.spatial_encoding == 'one-hot':
-            train_loc_sps[n, :] = encode_one_hot(x=loc_x, y=loc_y, xs=xso, ys=yso)
-        elif args.spatial_encoding == 'trig':
-            train_loc_sps[n, :] = encode_trig(x=loc_x, y=loc_y, dim=args.dim)
-        elif args.spatial_encoding == 'random-trig':
-            train_loc_sps[n, :] = encode_random_trig(x=loc_x, y=loc_y, dim=args.dim)
-        elif args.spatial_encoding == 'hex-trig':
-            train_loc_sps[n, :] = encode_hex_trig(x=loc_x, y=loc_y, dim=args.dim)
-        elif args.spatial_encoding == 'random-proj':
-            train_loc_sps[n, :] = encode_projection(x=loc_x, y=loc_y, dim=args.dim)
+        train_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+
+        # if args.spatial_encoding == 'ssp':
+        #     train_loc_sps[n, :] = encode_point(loc_x, loc_y, x_axis_sp, y_axis_sp).v
+        # elif args.spatial_encoding == 'random':
+        #     train_loc_sps[n, :] = encode_random(loc_x, loc_y, args.dim)
+        # elif args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+        #     train_loc_sps[n, :] = np.array([loc_x, loc_y])
+        # elif args.spatial_encoding == '2d-normalized':
+        #     train_loc_sps[n, :] = ((np.array([loc_x, loc_y]) - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+        # elif args.spatial_encoding == 'one-hot':
+        #     train_loc_sps[n, :] = encode_one_hot(x=loc_x, y=loc_y, xs=xso, ys=yso)
+        # elif args.spatial_encoding == 'trig':
+        #     train_loc_sps[n, :] = encode_trig(x=loc_x, y=loc_y, dim=args.dim)
+        # elif args.spatial_encoding == 'random-trig':
+        #     train_loc_sps[n, :] = encode_random_trig(x=loc_x, y=loc_y, dim=args.dim)
+        # elif args.spatial_encoding == 'hex-trig':
+        #     train_loc_sps[n, :] = encode_hex_trig(x=loc_x, y=loc_y, dim=args.dim)
+        # elif args.spatial_encoding == 'random-proj':
+        #     train_loc_sps[n, :] = encode_projection(x=loc_x, y=loc_y, dim=args.dim)
         train_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
 
         train_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]

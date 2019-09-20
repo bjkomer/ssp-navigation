@@ -1,4 +1,5 @@
 import numpy as np
+from spatial_semantic_pointers.utils import encode_point, make_good_unitary
 
 
 def encode_projection(x, y, dim, seed=13):
@@ -117,3 +118,43 @@ def encode_one_hot(x, y, xs, ys):
     arr[indx, indy] = 1
 
     return arr.flatten()
+
+
+def get_ssp_encode_func(dim, seed):
+    """
+    Generates an encoding function for SSPs that only takes (x,y) as input
+    :param dim: dimension of the SSP
+    :param seed: seed for randomly choosing axis vectors
+    :return:
+    """
+    rng = np.random.RandomState(seed=seed)
+    x_axis_sp = make_good_unitary(dim=dim, rng=rng)
+    y_axis_sp = make_good_unitary(dim=dim, rng=rng)
+
+    def encode_ssp(x, y):
+        return encode_point(x, y, x_axis_sp, y_axis_sp).v
+
+    return encode_ssp
+
+
+def get_one_hot_encode_func(dim=512, limit_low=0, limit_high=13):
+
+    optimal_side = int(np.floor(np.sqrt(dim)))
+
+    if optimal_side != np.sqrt(dim):
+        print("Warning, could not evenly square {}D for one hot encoding, total dimension is now {}D".format(
+            dim, optimal_side*optimal_side)
+        )
+
+    xs = np.linspace(limit_low, limit_high, optimal_side)
+    ys = np.linspace(limit_low, limit_high, optimal_side)
+
+    def encoding_func(x, y):
+        arr = np.zeros((len(xs), len(ys)))
+        indx = (np.abs(xs - x)).argmin()
+        indy = (np.abs(ys - y)).argmin()
+        arr[indx, indy] = 1
+
+        return arr.flatten()
+
+    return encoding_func

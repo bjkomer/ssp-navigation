@@ -8,13 +8,17 @@ import json
 from tensorboardX import SummaryWriter
 from datetime import datetime
 from ssp_navigation.utils.models import FeedForward, MLP, LearnedEncoding
+from utils.encodings import get_ssp_encode_func, encode_trig, encode_hex_trig, encode_random_trig, \
+    encode_projection, encode_one_hot, get_one_hot_encode_func
+from spatial_semantic_pointers.utils import encode_random
+from functools import partial
 import nengo.spa as spa
 
 parser = argparse.ArgumentParser(
     'Train a function that given a maze and a goal location, computes the direction to move to get to that goal'
 )
 
-parser.add_argument('--epochs', type=int, default=100, help='Number of epochs to train for')
+parser.add_argument('--epochs', type=int, default=250, help='Number of epochs to train for')
 parser.add_argument('--epoch-offset', type=int, default=0,
                     help='Optional offset to start epochs counting from. To be used when continuing training')
 parser.add_argument('--viz-period', type=int, default=50, help='number of epochs before a viz set run')
@@ -25,6 +29,7 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
                         'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
                     ],
                     help='coordinate encoding for agent location and goal')
+parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
                     help='ssp: region corresponding to maze layout.'
@@ -78,7 +83,7 @@ solved_mazes = data['solved_mazes']
 maze_sps = data['maze_sps']
 
 # n_mazes by n_goals by dim
-goal_sps = data['goal_sps']
+# goal_sps = data['goal_sps']
 
 # n_mazes by n_goals by 2
 goals = data['goals']
@@ -100,6 +105,39 @@ elif args.maze_id_type == 'random-sp':
 else:
     raise NotImplementedError
 
+limit_low = 0
+limit_high = data['coarse_mazes'].shape[2]
+
+# Generate the encoding function
+if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+    # no special encoding required for these cases
+    def encoding_func(x, y):
+        return np.array([x, y])
+elif args.spatial_encoding == '2d-normalized':
+    def encoding_func(x, y):
+        return ((np.array([x, y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
+elif args.spatial_encoding == 'ssp':
+    encoding_func = get_ssp_encode_func(args.dim, args.seed)
+elif args.spatial_encoding == 'one-hot':
+    encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
+elif args.spatial_encoding == 'trig':
+    encoding_func = partial(encode_trig, dim=args.dim)
+elif args.spatial_encoding == 'random-trig':
+    encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed)
+elif args.spatial_encoding == 'hex-trig':
+    encoding_func = partial(
+        encode_hex_trig,
+        dim=args.dim, seed=args.seed,
+        frequencies=(args.hex_freq_coef, args.hex_freq_coef*1.4, args.hex_freq_coef*1.4*1.4)
+    )
+elif args.spatial_encoding == 'random-proj':
+    encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)
+elif args.spatial_encoding == 'random':
+    encoding_func = partial(encode_random, dim=args.dim)
+else:
+    raise NotImplementedError
+
+
 # Create a validation/visualization set to run periodically while training and at the end
 # validation_set = ValidationSet(data=data, maze_indices=np.arange(n_mazes), goal_indices=[0])
 
@@ -119,14 +157,20 @@ else:
 
 
 validation_set = PolicyValidationSet(
-    data=data, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
-    spatial_encoding=args.spatial_encoding,
+    data=data, dim=args.dim, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
+    # spatial_encoding=args.spatial_encoding,
+    encoding_func=encoding_func,
 )
 
 
-trainloader = create_policy_dataloader(data=data, n_samples=args.n_train_samples, maze_sps=maze_sps, args=args)
+# TODO: ensure train and test are different
+trainloader = create_policy_dataloader(
+    data=data, n_samples=args.n_train_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func
+)
 
-testloader = create_policy_dataloader(data=data, n_samples=args.n_test_samples, maze_sps=maze_sps, args=args)
+testloader = create_policy_dataloader(
+    data=data, n_samples=args.n_test_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func
+)
 
 # Reset seeds here after generating data
 torch.manual_seed(args.seed)
@@ -160,6 +204,7 @@ elif args.spatial_encoding == 'random-proj':
 if 'learned' in args.spatial_encoding:
     model = LearnedEncoding(
         input_size=repr_dim,
+        encoding_size=args.dim,
         maze_id_size=id_size,
         hidden_size=args.hidden_size,
         output_size=2,
