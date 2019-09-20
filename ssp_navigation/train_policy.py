@@ -99,6 +99,7 @@ elif args.maze_id_type == 'one-hot':
     maze_sps = np.eye(n_mazes)
 elif args.maze_id_type == 'random-sp':
     id_size = args.dim
+    maze_sps = np.zeros((n_mazes, args.dim))
     # overwrite data
     for mi in range(n_mazes):
         maze_sps[mi, :] = spa.SemanticPointer(args.dim).v
