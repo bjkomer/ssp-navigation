@@ -254,7 +254,7 @@ def on_click(event):
 
             # wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
-            fig_pred = plot_path_predictions_image(
+            fig_pred, rmse = plot_path_predictions_image(
                 ax=ax,
                 directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
             )

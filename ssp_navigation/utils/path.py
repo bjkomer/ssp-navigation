@@ -155,7 +155,7 @@ def plot_path_predictions_image(directions, coords, name='', ax=None, wall_overl
     else:
         ax.set_title("RMSE: {}".format(rmse))
 
-    return fig
+    return fig, rmse
 
 
 def generate_maze_sp(size, xs, ys, x_axis_sp, y_axis_sp, normalize=True, obstacle_ratio=.2, map_style='blocks'):

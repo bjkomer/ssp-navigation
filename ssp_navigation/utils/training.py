@@ -221,7 +221,7 @@ class PolicyValidationSet(object):
 
                 yield fig_truth, fig_truth_quiver
 
-    def run_validation(self, model, writer, epoch, use_wall_overlay=False):
+    def run_validation(self, model, writer, epoch, use_wall_overlay=True):
         criterion = nn.MSELoss()
 
         with torch.no_grad():
@@ -238,13 +238,15 @@ class PolicyValidationSet(object):
 
                     wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
-                    fig_pred = plot_path_predictions_image(
+                    fig_pred, rmse = plot_path_predictions_image(
                         directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                     )
 
                     # fig_pred_quiver = plot_path_predictions(
                     #     directions=outputs.detach().numpy(), coords=locs.detach().numpy(), dcell=self.xs[1] - self.xs[0], wall_overlay=wall_overlay
                     # )
+
+                    writer.add_scalar(tag='viz_rmse/{}'.format(i), scalar_value=rmse, global_step=epoch)
                 else:
 
                     fig_pred = plot_path_predictions(
@@ -261,7 +263,7 @@ class PolicyValidationSet(object):
                 writer.add_scalar(tag='viz_loss/{}'.format(i), scalar_value=loss.data.item(), global_step=epoch)
 
     # Note that this must be a separate function because the previous cannot contain yields
-    def run_validation_generator(self, model, epoch, use_wall_overlay=False):
+    def run_validation_generator(self, model, epoch, use_wall_overlay=True):
         criterion = nn.MSELoss()
 
         with torch.no_grad():
@@ -278,7 +280,7 @@ class PolicyValidationSet(object):
 
                     wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
-                    fig_pred = plot_path_predictions_image(
+                    fig_pred, rmse = plot_path_predictions_image(
                         directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                     )
 
