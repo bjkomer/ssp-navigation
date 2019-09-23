@@ -63,7 +63,7 @@ variant_folder = '{}_{}train_{}_id_{}layer_{}units'.format(
 )
 
 if args.variant_subfolder != '':
-    variant_folder = os.path.join(variant_folder, args.variant_subfolder)
+    variant_folder = os.path.join(args.variant_subfolder, variant_folder)
 
 logdir = os.path.join(args.dataset_dir, 'policy', variant_folder)
 
