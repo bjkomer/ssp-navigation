@@ -82,9 +82,6 @@ solved_mazes = data['solved_mazes']
 # n_mazes by dim
 maze_sps = data['maze_sps']
 
-# n_mazes by n_goals by dim
-# goal_sps = data['goal_sps']
-
 # n_mazes by n_goals by 2
 goals = data['goals']
 
@@ -109,17 +106,23 @@ else:
 limit_low = 0
 limit_high = data['coarse_mazes'].shape[2]
 
+# Dimension of location representation is dependent on the encoding used
+repr_dim = args.dim
+
 # Generate the encoding function
 if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+    repr_dim = 2
     # no special encoding required for these cases
     def encoding_func(x, y):
         return np.array([x, y])
 elif args.spatial_encoding == '2d-normalized':
+    repr_dim = 2
     def encoding_func(x, y):
         return ((np.array([x, y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
 elif args.spatial_encoding == 'ssp':
     encoding_func = get_ssp_encode_func(args.dim, args.seed)
 elif args.spatial_encoding == 'one-hot':
+    repr_dim = int(np.sqrt(args.dim)) ** 2
     encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
 elif args.spatial_encoding == 'trig':
     encoding_func = partial(encode_trig, dim=args.dim)
@@ -156,9 +159,8 @@ else:
     else:
         goal_indices = [0, 1]
 
-
 validation_set = PolicyValidationSet(
-    data=data, dim=args.dim, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
+    data=data, dim=repr_dim, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
     # spatial_encoding=args.spatial_encoding,
     encoding_func=encoding_func,
 )
@@ -177,29 +179,6 @@ testloader = create_policy_dataloader(
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 
-# Dimension of location representation is dependent on the encoding used
-if args.spatial_encoding == 'ssp':
-    repr_dim = args.dim
-elif args.spatial_encoding == 'random':
-    repr_dim = args.dim
-elif args.spatial_encoding == '2d':
-    repr_dim = 2
-elif args.spatial_encoding == 'learned':
-    repr_dim = 2
-elif args.spatial_encoding == 'frozen-learned':  # use a pretrained learned representation
-    repr_dim = 2
-elif args.spatial_encoding == '2d-normalized':
-    repr_dim = 2
-elif args.spatial_encoding == 'one-hot':
-    repr_dim = int(np.sqrt(args.dim))**2
-elif args.spatial_encoding == 'trig':
-    repr_dim = args.dim
-elif args.spatial_encoding == 'hex-trig':
-    repr_dim = args.dim
-elif args.spatial_encoding == 'random-trig':
-    repr_dim = args.dim
-elif args.spatial_encoding == 'random-proj':
-    repr_dim = args.dim
 
 # input is maze, loc, goal ssps, output is 2D direction to move
 if 'learned' in args.spatial_encoding:
@@ -218,13 +197,6 @@ else:
         output_size=2,
         n_layers=args.n_hidden_layers
     )
-# if args.n_hidden_layers > 1:
-#     model = MLP(input_size=id_size + repr_dim * 2, hidden_size=args.hidden_size, output_size=2, n_layers=args.n_hidden_layers)
-# else:
-#     if 'learned' in args.spatial_encoding:
-#         model = LearnedEncoding(input_size=repr_dim, maze_id_size=id_size, hidden_size=args.hidden_size, output_size=2)
-#     else:
-#         model = FeedForward(input_size=id_size + repr_dim * 2, hidden_size=args.hidden_size, output_size=2)
 
 if args.load_saved_model:
     if args.spatial_encoding == 'frozen-learned':
