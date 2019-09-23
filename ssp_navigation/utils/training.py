@@ -188,7 +188,7 @@ class PolicyValidationSet(object):
 
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
-                fig_truth = plot_path_predictions_image(
+                fig_truth, rmse = plot_path_predictions_image(
                     directions=directions.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                 )
 
@@ -211,7 +211,7 @@ class PolicyValidationSet(object):
 
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
-                fig_truth = plot_path_predictions_image(
+                fig_truth, rmse = plot_path_predictions_image(
                     directions=directions.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
                 )
 
