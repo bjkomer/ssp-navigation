@@ -54,6 +54,9 @@ parser.add_argument('--logdir', type=str, default='policy',
                     help='Directory for saved model and tensorboard log, within dataset-dir')
 parser.add_argument('--load-saved-model', type=str, default='', help='Saved model to load from')
 
+parser.add_argument('--gpu', type=int, default=-1,
+                    help="set to an integer corresponding to the gpu to use. Set to -1 to use the CPU")
+
 args = parser.parse_args()
 
 dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
@@ -87,6 +90,13 @@ goals = data['goals']
 
 n_goals = goals.shape[1]
 n_mazes = fine_mazes.shape[0]
+
+if args.gpu == -1:
+    device = torch.device('cpu:0')
+    pin_memory = False
+else:
+    device = torch.device('cuda:{}'.format(int(args.gpu)))
+    pin_memory = True
 
 if args.maze_id_type == 'ssp':
     id_size = args.dim
@@ -162,17 +172,17 @@ else:
 validation_set = PolicyValidationSet(
     data=data, dim=repr_dim, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
     # spatial_encoding=args.spatial_encoding,
-    encoding_func=encoding_func,
+    encoding_func=encoding_func, device=device
 )
 
 
 # TODO: ensure train and test are different
 trainloader = create_policy_dataloader(
-    data=data, n_samples=args.n_train_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func
+    data=data, n_samples=args.n_train_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func, pin_memory=pin_memory
 )
 
 testloader = create_policy_dataloader(
-    data=data, n_samples=args.n_test_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func
+    data=data, n_samples=args.n_test_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func, pin_memory=pin_memory
 )
 
 # Reset seeds here after generating data
@@ -197,6 +207,9 @@ else:
         output_size=2,
         n_layers=args.n_hidden_layers
     )
+
+model.to(device)
+
 
 if args.load_saved_model:
     if args.spatial_encoding == 'frozen-learned':
@@ -255,9 +268,9 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
             for i, data in enumerate(testloader):
                 maze_loc_goal_ssps, directions, locs, goals = data
 
-                outputs = model(maze_loc_goal_ssps)
+                outputs = model(maze_loc_goal_ssps.to(device))
 
-                loss = criterion(outputs, directions)
+                loss = criterion(outputs, directions.to(device))
 
             writer.add_scalar('test_loss', loss.data.item(), e)
 
@@ -270,9 +283,9 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
             continue  # Drop data, not enough for a batch
         optimizer.zero_grad()
 
-        outputs = model(maze_loc_goal_ssps)
+        outputs = model(maze_loc_goal_ssps.to(device))
 
-        loss = criterion(outputs, directions)
+        loss = criterion(outputs, directions.to(device))
         # print(loss.data.item())
         avg_loss += loss.data.item()
         n_batches += 1
@@ -297,9 +310,9 @@ with torch.no_grad():
     for i, data in enumerate(testloader):
         maze_loc_goal_ssps, directions, locs, goals = data
 
-        outputs = model(maze_loc_goal_ssps)
+        outputs = model(maze_loc_goal_ssps.to(device))
 
-        loss = criterion(outputs, directions)
+        loss = criterion(outputs, directions.to(device))
 
         # print(loss.data.item())
 

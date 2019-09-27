@@ -15,11 +15,14 @@ import matplotlib.pyplot as plt
 class PolicyValidationSet(object):
 
     def __init__(self, data, dim, maze_sps, maze_indices, goal_indices, subsample=2,
-                 encoding_func=None,
+                 encoding_func=None, device=None,
                  # spatial_encoding='ssp',
                  ):
         # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
         # y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
+
+        # Either cpu or cuda
+        self.device = device
 
         # n_mazes by res by res
         fine_mazes = data['fine_mazes']
@@ -230,16 +233,16 @@ class PolicyValidationSet(object):
                 print("Viz batch {} of {}".format(i + 1, self.n_mazes * self.n_goals))
                 maze_loc_goal_ssps, directions, locs, goals = data
 
-                outputs = model(maze_loc_goal_ssps)
+                outputs = model(maze_loc_goal_ssps.to(self.device))
 
-                loss = criterion(outputs, directions)
+                loss = criterion(outputs, directions.to(self.device))
 
                 if use_wall_overlay:
 
                     wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                     fig_pred, rmse = plot_path_predictions_image(
-                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
+                        directions=outputs.detach().cpu().numpy(), coords=locs.detach().cpu().numpy(), wall_overlay=wall_overlay
                     )
 
                     # fig_pred_quiver = plot_path_predictions(
@@ -250,7 +253,7 @@ class PolicyValidationSet(object):
                 else:
 
                     fig_pred = plot_path_predictions(
-                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), type='colour'
+                        directions=outputs.detach().cpu().numpy(), coords=locs.detach().cpu().numpy(), type='colour'
                     )
 
                     # fig_pred_quiver = plot_path_predictions(
@@ -272,7 +275,7 @@ class PolicyValidationSet(object):
                 print("Viz batch {} of {}".format(i + 1, self.n_mazes * self.n_goals))
                 maze_loc_goal_ssps, directions, locs, goals = data
 
-                outputs = model(maze_loc_goal_ssps)
+                outputs = model(maze_loc_goal_ssps.to(self.device))
 
                 loss = criterion(outputs, directions)
 
@@ -300,7 +303,7 @@ class PolicyValidationSet(object):
                 yield fig_pred, fig_pred_quiver
 
 
-def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func):
+def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin_memory=False):
     # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
     # y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
 
@@ -416,7 +419,7 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func):
     )
 
     trainloader = torch.utils.data.DataLoader(
-        dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=0,
+        dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
     )
 
     return trainloader
