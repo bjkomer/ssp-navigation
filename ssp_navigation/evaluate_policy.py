@@ -22,6 +22,7 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     ],
                     help='coordinate encoding for agent location and goal')
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
+parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
                     help='ssp: region corresponding to maze layout.'
                          'one-hot: each maze given a one-hot vector.'
@@ -183,7 +184,7 @@ if '.npz' in args.out_file:
 elif '.csv' in args.out_file:
     df = pd.DataFrame(
         data=rmses,
-        columns='RMSE',
+        columns=['RMSE'],
     )
     df['Dimensionality'] = args.dim
     df['Hidden Layer Size'] = args.hidden_size
