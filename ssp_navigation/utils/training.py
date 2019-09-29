@@ -302,6 +302,27 @@ class PolicyValidationSet(object):
 
                 yield fig_pred, fig_pred_quiver
 
+    def get_rmse(self, model):
+
+        ret = np.zeros((self.n_mazes * self.n_goals,))
+
+        with torch.no_grad():
+            # Each maze is in one batch
+            for i, data in enumerate(self.vizloader):
+                print("Viz batch {} of {}".format(i + 1, self.n_mazes * self.n_goals))
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+
+                fig_pred, rmse = plot_path_predictions_image(
+                    directions=outputs.detach().cpu().numpy(), coords=locs.detach().cpu().numpy(), wall_overlay=wall_overlay
+                )
+
+                ret[i] = rmse
+
+        return ret
 
 def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin_memory=False):
     # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
