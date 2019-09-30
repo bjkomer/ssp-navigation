@@ -40,8 +40,8 @@ parser.add_argument('--gpu', type=int, default=-1,
 parser.add_argument('--out-file', type=str, default="", help='Output file name')
 
 # Tags for the pandas dataframe
-parser.add_argument('--dataset', type='str', default='', choices=['', 'blocks', 'maze', 'mixed'])
-parser.add_argument('--trained-on', type='str', default='', choices=['', 'blocks', 'maze', 'mixed'])
+parser.add_argument('--dataset', type=str, default='', choices=['', 'blocks', 'maze', 'mixed'])
+parser.add_argument('--trained-on', type=str, default='', choices=['', 'blocks', 'maze', 'mixed'])
 parser.add_argument('--epochs', type=int, default=1000)
 
 args = parser.parse_args()
