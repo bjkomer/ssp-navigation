@@ -30,5 +30,7 @@ else:
 
         df.append(df_temp)
 
-sns.barplot(data=df, x='encoding', y='RMSE')
+    df.to_csv(combined_fname)
+
+sns.barplot(data=df, x='Encoding', y='RMSE')
 plt.show()
