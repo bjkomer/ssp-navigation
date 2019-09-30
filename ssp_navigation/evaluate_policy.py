@@ -39,6 +39,11 @@ parser.add_argument('--gpu', type=int, default=-1,
 
 parser.add_argument('--out-file', type=str, default="", help='Output file name')
 
+# Tags for the pandas dataframe
+parser.add_argument('--dataset', type='str', default='', choices=['', 'blocks', 'maze', 'mixed'])
+parser.add_argument('--trained-on', type='str', default='', choices=['', 'blocks', 'maze', 'mixed'])
+parser.add_argument('--epochs', type=int, default=1000)
+
 args = parser.parse_args()
 
 # an output file must be specified
@@ -192,5 +197,9 @@ elif '.csv' in args.out_file:
     df['Encoding'] = args.spatial_encoding
     df['Seed'] = args.seed
     df['Maze ID Type'] = args.maze_id_type
+    # Command line supplied tags
+    df['Dataset'] = args.dataset
+    df['Trained On'] = args.trained_on
+    df['Epochs'] = args.epochs
     df.to_csv(args.out_file)
 
