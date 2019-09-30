@@ -28,7 +28,7 @@ else:
     for file in files:
         df_temp = pd.read_csv(os.path.join(args.folder, file))
 
-        df.append(df_temp)
+        df = df.append(df_temp)
 
     df.to_csv(combined_fname)
 
