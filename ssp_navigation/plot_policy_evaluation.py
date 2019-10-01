@@ -32,5 +32,15 @@ else:
 
     df.to_csv(combined_fname)
 
+# df = df[df['Dimensionality'] == 128]
+# df = df[df['Encoding'] == 'ssp']
+#
+# print(df)
+
+plt.figure()
 sns.barplot(data=df, x='Encoding', y='RMSE')
+plt.figure()
+sns.barplot(data=df, x='Dimensionality', y='RMSE')
+plt.figure()
+sns.barplot(data=df, x='Dataset', y='RMSE')
 plt.show()

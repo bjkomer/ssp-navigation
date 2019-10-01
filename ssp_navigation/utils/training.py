@@ -446,6 +446,37 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
     return trainloader
 
 
+def create_train_test_dataloaders(
+        data, n_train_samples, n_test_samples,
+        maze_sps, args, encoding_func,
+        train_split=0.8,
+        pin_memory=False):
+
+    #TODO: WIP
+
+    for test_set, n_samples in enumerate([n_train_samples, n_test_samples]):
+
+        dataset = MazeDataset(
+            maze_ssp=train_maze_sps,
+            loc_ssps=train_loc_sps,
+            goal_ssps=train_goal_sps,
+            locs=train_locs,
+            goals=train_goals,
+            direction_outputs=train_output_dirs,
+        )
+
+        if test_set == 0:
+            trainloader = torch.utils.data.DataLoader(
+                dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
+            )
+        elif test_set == 1:
+            testloader = torch.utils.data.DataLoader(
+                dataset, batch_size=n_samples, shuffle=True, num_workers=0, pin_memory=pin_memory
+            )
+
+    return trainloader, testloader
+
+
 class TrajectoryValidationSet(object):
 
     def __init__(self, dataloader, heatmap_vectors, xs, ys, ssp_scaling=1, spatial_encoding='ssp'):

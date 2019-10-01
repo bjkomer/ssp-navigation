@@ -112,6 +112,23 @@ class LearnedEncoding(nn.Module):
         return self.forward_activations_encoding(inputs)[0]
 
 
+class EncodingLayer(nn.Module):
+
+    def __init__(self, input_size=2, encoding_size=512):
+        super(EncodingLayer, self).__init__()
+
+        self.input_size = input_size
+        self.encoding_size = encoding_size
+
+        self.encoding_layer = nn.Linear(self.input_size, self.encoding_size)
+
+    def forward(self, inputs):
+
+        encoding = F.relu(self.encoding_layer(inputs))
+
+        return encoding
+
+
 # class LearnedEncoding(nn.Module):
 #
 #     def __init__(self, input_size=2, encoding_size=512, maze_id_size=512, hidden_size=512, output_size=2):

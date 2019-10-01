@@ -1,5 +1,8 @@
 import numpy as np
-from spatial_semantic_pointers.utils import encode_point, make_good_unitary
+from spatial_semantic_pointers.utils import encode_point, make_good_unitary, encode_random
+from functools import partial
+from ssp_navigation.utils.models import EncodingLayer
+import torch
 
 
 def encode_projection(x, y, dim, seed=13):
@@ -12,7 +15,7 @@ def encode_projection(x, y, dim, seed=13):
     proj = rstate.uniform(low=-1, high=1, size=(2, dim))
 
     # return np.array([x, y]).reshape(1, 2) @ proj
-    return np.dot(np.array([x, y]).reshape(1, 2), proj)
+    return np.dot(np.array([x, y]).reshape(1, 2), proj).reshape(dim)
 
 
 def encode_trig(x, y, dim):
@@ -158,3 +161,73 @@ def get_one_hot_encode_func(dim=512, limit_low=0, limit_high=13):
         return arr.flatten()
 
     return encoding_func
+
+
+def encoding_func_from_model(path, dim=512):
+
+    encoding_layer = EncodingLayer(input_size=2, encoding_size=dim)
+
+    # TODO: modify this to have a network that just does the encoding
+    # TODO: make sure this is working correctly
+    print("Loading learned first layer parameters from pretrained model")
+    state_dict = torch.load(path)
+
+    for name, param in state_dict.items():
+        if name in ['encoding_layer.weight', 'encoding_layer.bias']:
+            encoding_layer.state_dict()[name].copy_(param)
+
+    print("Freezing first layer parameters for training")
+    for name, param in encoding_layer.named_parameters():
+        if name in ['encoding_layer.weight', 'encoding_layer.bias']:
+            param.requires_grad = False
+        if param.requires_grad:
+            print(name)
+
+    # def encoding_func(x, y):
+    def encoding_func(positions):
+        return encoding_layer(torch.Tensor(positions)).detach().numpy()
+
+    return encoding_func
+
+
+def get_encoding_function(args, limit_low=0, limit_high=13):
+    if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+        repr_dim = 2
+
+        # no special encoding required for these cases
+        def encoding_func(x, y):
+            return np.array([x, y])
+    elif args.spatial_encoding == '2d-normalized':
+        repr_dim = 2
+
+        def encoding_func(x, y):
+            return ((np.array([x, y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
+    elif args.spatial_encoding == 'ssp':
+        repr_dim = args.dim
+        encoding_func = get_ssp_encode_func(args.dim, args.seed)
+    elif args.spatial_encoding == 'one-hot':
+        repr_dim = int(np.sqrt(args.dim)) ** 2
+        encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
+    elif args.spatial_encoding == 'trig':
+        repr_dim = args.dim
+        encoding_func = partial(encode_trig, dim=args.dim)
+    elif args.spatial_encoding == 'random-trig':
+        repr_dim = args.dim
+        encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed)
+    elif args.spatial_encoding == 'hex-trig':
+        repr_dim = args.dim
+        encoding_func = partial(
+            encode_hex_trig,
+            dim=args.dim, seed=args.seed,
+            frequencies=(args.hex_freq_coef, args.hex_freq_coef * 1.4, args.hex_freq_coef * 1.4 * 1.4)
+        )
+    elif args.spatial_encoding == 'random-proj':
+        repr_dim = args.dim
+        encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)
+    elif args.spatial_encoding == 'random':
+        repr_dim = args.dim
+        encoding_func = partial(encode_random, dim=args.dim)
+    else:
+        raise NotImplementedError
+
+    return encoding_func, repr_dim
