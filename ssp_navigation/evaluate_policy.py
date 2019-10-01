@@ -179,6 +179,8 @@ else:
         output_size=2,
         n_layers=args.n_hidden_layers
     )
+    
+model.load_state_dict(torch.load(args.model), strict=True)
 
 model.to(device)
 
