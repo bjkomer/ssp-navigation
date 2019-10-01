@@ -406,24 +406,6 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
 
         train_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
 
-        # if args.spatial_encoding == 'ssp':
-        #     train_loc_sps[n, :] = encode_point(loc_x, loc_y, x_axis_sp, y_axis_sp).v
-        # elif args.spatial_encoding == 'random':
-        #     train_loc_sps[n, :] = encode_random(loc_x, loc_y, args.dim)
-        # elif args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
-        #     train_loc_sps[n, :] = np.array([loc_x, loc_y])
-        # elif args.spatial_encoding == '2d-normalized':
-        #     train_loc_sps[n, :] = ((np.array([loc_x, loc_y]) - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
-        # elif args.spatial_encoding == 'one-hot':
-        #     train_loc_sps[n, :] = encode_one_hot(x=loc_x, y=loc_y, xs=xso, ys=yso)
-        # elif args.spatial_encoding == 'trig':
-        #     train_loc_sps[n, :] = encode_trig(x=loc_x, y=loc_y, dim=args.dim)
-        # elif args.spatial_encoding == 'random-trig':
-        #     train_loc_sps[n, :] = encode_random_trig(x=loc_x, y=loc_y, dim=args.dim)
-        # elif args.spatial_encoding == 'hex-trig':
-        #     train_loc_sps[n, :] = encode_hex_trig(x=loc_x, y=loc_y, dim=args.dim)
-        # elif args.spatial_encoding == 'random-proj':
-        #     train_loc_sps[n, :] = encode_projection(x=loc_x, y=loc_y, dim=args.dim)
         train_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
 
         train_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
@@ -448,21 +430,139 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
 
 def create_train_test_dataloaders(
         data, n_train_samples, n_test_samples,
+        n_mazes,
         maze_sps, args, encoding_func,
-        train_split=0.8,
+        split_seed=13,
         pin_memory=False):
+    """
 
-    #TODO: WIP
+    :param data:
+    :param n_train_samples:
+    :param n_test_samples:
+    :param n_mazes: number of mazes to allow training/testing on
+    :param maze_sps:
+    :param args:
+    :param encoding_func: function for encoding 2D points into a higher dimensional space
+    :param train_split: train/test split of the core data to generate from
+    :param split_seed: the seed used for splitting the train and test sets
+    :param pin_memory: set to True if using gpu, it will make things faster
+    :return:
+    """
+
+    rng = np.random.RandomState(seed=split_seed)
+
+    # n_mazes by res by res
+    fine_mazes = data['fine_mazes'][:n_mazes, :, :]
+
+    # n_mazes by res by res by 2
+    solved_mazes = data['solved_mazes'][:n_mazes, :, :, :]
+
+    # n_mazes by n_goals by 2
+    goals = data['goals'][:n_mazes, :, :]
+
+    n_goals = goals.shape[1]
+    # n_mazes = fine_mazes.shape[0]
+
+    # NOTE: only used for one-hot encoded location representation case
+    xs = data['xs']
+    ys = data['ys']
+    xso = np.linspace(xs[0], xs[-1], int(np.sqrt(args.dim)))
+    yso = np.linspace(ys[0], ys[-1], int(np.sqrt(args.dim)))
+
+    # n_mazes by n_goals by dim
+    if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+        goal_sps = goals.copy()
+    elif args.spatial_encoding == '2d-normalized':
+        goal_sps = goals.copy()
+        goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+    else:
+        goal_sps = np.zeros((n_mazes, n_goals, args.dim))
+        for ni in range(n_mazes):
+            for gi in range(n_goals):
+                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+
+    if 'xs' in data.keys():
+        xs = data['xs']
+        ys = data['ys']
+    else:
+        # backwards compatibility
+        xs = np.linspace(args.limit_low, args.limit_high, args.res)
+        ys = np.linspace(args.limit_low, args.limit_high, args.res)
+
+    free_spaces = np.argwhere(fine_mazes == 0)
+    n_free_spaces = free_spaces.shape[0]
+
+    # The first 75% of the goals can be trained on
+    r_train_goal_split = .75
+    n_train_goal_split = int(n_goals*r_train_goal_split)
+    # The last 75% of the goals can be tested on
+    r_test_goal_split = .75
+    n_test_goal_split = int(n_goals * r_test_goal_split)
+    # This means that 50% of the goals can appear in both
+
+    # The first 75% of the starts can be trained on
+    r_train_start_split = .75
+    n_train_start_split = int(n_free_spaces * r_train_start_split)
+    # The last 75% of the starts can be tested on
+    r_test_start_split = .75
+    n_test_start_split = int(n_free_spaces * r_test_start_split)
+    # This means that 50% of the starts can appear in both
+
+    start_indices = np.arange(n_free_spaces)
+    rng.shuffle(start_indices)
+
+    # NOTE: goal indices probably don't need to be shuffled, as they are already randomly located
+    goal_indices = np.arange(n_goals)
+    rng.shuffle(goal_indices)
 
     for test_set, n_samples in enumerate([n_train_samples, n_test_samples]):
 
+        if test_set == 0:
+            sample_indices = np.random.randint(low=0, high=n_train_start_split, size=n_samples)
+            sample_goal_indices = np.random.randint(low=0, high=n_train_goal_split, size=n_samples)
+        elif test_set == 1:
+            sample_indices = np.random.randint(low=n_test_start_split, high=n_free_spaces, size=n_samples)
+            sample_goal_indices = np.random.randint(low=n_test_goal_split, high=n_goals, size=n_samples)
+
+        sample_locs = np.zeros((n_samples, 2))
+        sample_goals = np.zeros((n_samples, 2))
+        sample_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
+        sample_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
+        sample_output_dirs = np.zeros((n_samples, 2))
+        sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+
+        for n in range(n_samples):
+
+            # n_mazes by res by res
+            indices = free_spaces[start_indices[sample_indices[n]], :]
+            maze_index = indices[0]
+            x_index = indices[1]
+            y_index = indices[2]
+            goal_index = goal_indices[sample_goal_indices[n]]
+
+            # 2D coordinate of the agent's current location
+            loc_x = xs[x_index]
+            loc_y = ys[y_index]
+
+            sample_locs[n, 0] = loc_x
+            sample_locs[n, 1] = loc_y
+            sample_goals[n, :] = goals[maze_index, goal_index, :]
+
+            sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+
+            sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
+
+            sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
+
+            sample_maze_sps[n, :] = maze_sps[maze_index]
+
         dataset = MazeDataset(
-            maze_ssp=train_maze_sps,
-            loc_ssps=train_loc_sps,
-            goal_ssps=train_goal_sps,
-            locs=train_locs,
-            goals=train_goals,
-            direction_outputs=train_output_dirs,
+            maze_ssp=sample_maze_sps,
+            loc_ssps=sample_loc_sps,
+            goal_ssps=sample_goal_sps,
+            locs=sample_locs,
+            goals=sample_goals,
+            direction_outputs=sample_output_dirs,
         )
 
         if test_set == 0:

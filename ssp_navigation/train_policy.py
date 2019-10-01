@@ -1,4 +1,4 @@
-from ssp_navigation.utils.training import PolicyValidationSet, create_policy_dataloader
+from ssp_navigation.utils.training import PolicyValidationSet, create_policy_dataloader, create_train_test_dataloaders
 import torch
 import torch.nn as nn
 import numpy as np
@@ -18,6 +18,7 @@ parser = argparse.ArgumentParser(
     'Train a function that given a maze and a goal location, computes the direction to move to get to that goal'
 )
 
+parser.add_argument('--n-mazes', type=int, default=10, help='Number of mazes from the dataset to train with')
 parser.add_argument('--epochs', type=int, default=250, help='Number of epochs to train for')
 parser.add_argument('--epoch-offset', type=int, default=0,
                     help='Optional offset to start epochs counting from. To be used when continuing training')
@@ -175,14 +176,19 @@ validation_set = PolicyValidationSet(
     encoding_func=encoding_func, device=device
 )
 
+# # TODO: ensure train and test are different
+# trainloader = create_policy_dataloader(
+#     data=data, n_samples=args.n_train_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func, pin_memory=pin_memory
+# )
+#
+# testloader = create_policy_dataloader(
+#     data=data, n_samples=args.n_test_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func, pin_memory=pin_memory
+# )
 
-# TODO: ensure train and test are different
-trainloader = create_policy_dataloader(
-    data=data, n_samples=args.n_train_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func, pin_memory=pin_memory
-)
-
-testloader = create_policy_dataloader(
-    data=data, n_samples=args.n_test_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func, pin_memory=pin_memory
+trainloader, testloader = create_train_test_dataloaders(
+    data=data, n_train_samples=args.n_train_samples, n_test_samples=args.n_test_samples,
+    maze_sps=maze_sps, args=args, n_mazes=args.n_mazes,
+    encoding_func=encoding_func, pin_memory=pin_memory
 )
 
 # Reset seeds here after generating data
