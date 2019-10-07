@@ -283,7 +283,7 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
                 avg_test_loss += loss.data.item()
                 n_test_batches += 1
 
-        if n_batches > 0:
+        if n_test_batches > 0:
             avg_test_loss /= n_test_batches
             print(avg_test_loss)
             writer.add_scalar('test_loss', avg_test_loss, e)
