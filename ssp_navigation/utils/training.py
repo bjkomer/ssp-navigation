@@ -571,7 +571,7 @@ def create_train_test_dataloaders(
             )
         elif test_set == 1:
             testloader = torch.utils.data.DataLoader(
-                dataset, batch_size=n_samples, shuffle=True, num_workers=0, pin_memory=pin_memory
+                dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
             )
 
     return trainloader, testloader

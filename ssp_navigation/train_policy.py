@@ -39,7 +39,7 @@ parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'rand
 parser.add_argument('--seed', type=int, default=13, help='Seed for training and generating axis SSPs')
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the SSPs')
 parser.add_argument('--n-train-samples', type=int, default=50000, help='Number of training samples')
-parser.add_argument('--n-test-samples', type=int, default=5000, help='Number of testing samples')
+parser.add_argument('--n-test-samples', type=int, default=50000, help='Number of testing samples')
 parser.add_argument('--hidden-size', type=int, default=512, help='Size of the hidden layer in the model')
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
 parser.add_argument('--batch-size', type=int, default=32)
@@ -269,6 +269,8 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
     # Run the test set for validation
     if e % args.val_period == 0:
         print("Running Val Set")
+        avg_test_loss = 0
+        n_test_batches = 0
         with torch.no_grad():
             # Everything is in one batch, so this loop will only happen once
             for i, data in enumerate(testloader):
@@ -278,7 +280,13 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
 
                 loss = criterion(outputs, directions.to(device))
 
-            writer.add_scalar('test_loss', loss.data.item(), e)
+                avg_test_loss += loss.data.item()
+                n_test_batches += 1
+
+        if n_batches > 0:
+            avg_test_loss /= n_test_batches
+            print(avg_test_loss)
+            writer.add_scalar('test_loss', avg_test_loss, e)
 
     avg_loss = 0
     n_batches = 0
