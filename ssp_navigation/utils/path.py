@@ -103,21 +103,21 @@ def plot_path_predictions(directions, coords, name='', min_val=-1, max_val=1,
     return fig
 
 
-def plot_path_predictions_image(directions, coords, name='', ax=None, wall_overlay=None):
+def plot_path_predictions_image(directions_pred, directions_true, name='', ax=None, wall_overlay=None):
 
     if ax is None:
         fig, ax = plt.subplots()
     else:
         fig = None
 
-    angles_flat = np.arctan2(directions[:, 1], directions[:, 0])
+    angles_flat_pred = np.arctan2(directions_pred[:, 1], directions_pred[:, 0])
 
     # NOTE: this assumes the data can be reshaped into a perfect square
-    size = int(np.sqrt(angles_flat.shape[0]))
+    size = int(np.sqrt(angles_flat_pred.shape[0]))
 
-    angles = angles_flat.reshape((size, size))
+    angles_pred = angles_flat_pred.reshape((size, size))
 
-    ax.imshow(angles, cmap='hsv', interpolation=None)
+    ax.imshow(angles_pred, cmap='hsv', interpolation=None)
 
     if wall_overlay is not None:
         # Overlay black as the walls, use transparent everywhere else
@@ -132,12 +132,12 @@ def plot_path_predictions_image(directions, coords, name='', ax=None, wall_overl
                     overlay[i, j, :] = 0
         ax.imshow(overlay, interpolation=None)
 
-    sin = np.sin(angles_flat)
-    cos = np.cos(angles_flat)
+    sin = np.sin(angles_flat_pred)
+    cos = np.cos(angles_flat_pred)
 
     pred_dir_normalized = np.vstack([cos, sin]).T
 
-    squared_error = (pred_dir_normalized - directions)**2
+    squared_error = (pred_dir_normalized - directions_true)**2
 
     # only calculate mean across the non-wall elements
     # mse = np.mean(squared_error[np.where(wall_overlay == 0)])

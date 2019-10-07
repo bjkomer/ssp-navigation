@@ -192,7 +192,9 @@ class PolicyValidationSet(object):
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                 fig_truth, rmse = plot_path_predictions_image(
-                    directions=directions.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
+                    directions_pred=directions.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=wall_overlay
                 )
 
                 # fig_truth_quiver = plot_path_predictions(
@@ -215,7 +217,9 @@ class PolicyValidationSet(object):
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                 fig_truth, rmse = plot_path_predictions_image(
-                    directions=directions.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
+                    directions_pred=directions.detach().numpy(),
+                    directions_true=directions.detach().numpy(),
+                    wall_overlay=wall_overlay
                 )
 
                 fig_truth_quiver = plot_path_predictions(
@@ -242,7 +246,9 @@ class PolicyValidationSet(object):
                     wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                     fig_pred, rmse = plot_path_predictions_image(
-                        directions=outputs.detach().cpu().numpy(), coords=locs.detach().cpu().numpy(), wall_overlay=wall_overlay
+                        directions_pred=outputs.detach().cpu().numpy(),
+                        directions_true=directions.detach().cpu().numpy(),
+                        wall_overlay=wall_overlay
                     )
 
                     # fig_pred_quiver = plot_path_predictions(
@@ -284,7 +290,9 @@ class PolicyValidationSet(object):
                     wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                     fig_pred, rmse = plot_path_predictions_image(
-                        directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
+                        directions_pred=outputs.detach().cpu().numpy(),
+                        directions_true=directions.detach().cpu().numpy(),
+                        wall_overlay=wall_overlay
                     )
 
                     fig_pred_quiver = plot_path_predictions(
@@ -317,7 +325,9 @@ class PolicyValidationSet(object):
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                 fig_pred, rmse = plot_path_predictions_image(
-                    directions=outputs.detach().cpu().numpy(), coords=locs.detach().cpu().numpy(), wall_overlay=wall_overlay
+                    directions_pred=outputs.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=wall_overlay
                 )
 
                 ret[i] = rmse
