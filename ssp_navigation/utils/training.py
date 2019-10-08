@@ -348,7 +348,7 @@ def compute_rmse(directions_pred, directions_true, wall_overlay=None):
     angles_offset_true[:, 0] = angles_flat_true
     angles_offset_true[:, 0] = angles_flat_true + 2 * np.pi
 
-    angles_offset_true -= angles_flat_pred
+    angles_offset_true -= angles_flat_pred.reshape(len(angles_flat_pred), 1)
     angles_offset_true = np.abs(angles_offset_true)
     angle_error = np.min(angles_offset_true, axis=1)
 
