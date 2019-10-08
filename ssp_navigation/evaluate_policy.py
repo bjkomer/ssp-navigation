@@ -195,12 +195,13 @@ model.to(device)
 
 rmses = validation_set.get_rmse(model)
 
+
 if '.npz' in args.out_file:
     np.savez(args.outfile, rmses=rmses)
 elif '.csv' in args.out_file:
     df = pd.DataFrame(
         data=rmses,
-        columns=['RMSE'],
+        columns=['RMSE', 'Angular RMSE'],
     )
     df['Dimensionality'] = args.dim
     df['Hidden Layer Size'] = args.hidden_size

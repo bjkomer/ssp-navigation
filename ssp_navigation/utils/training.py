@@ -312,7 +312,7 @@ class PolicyValidationSet(object):
 
     def get_rmse(self, model):
 
-        ret = np.zeros((self.n_mazes * self.n_goals,))
+        ret = np.zeros((self.n_mazes * self.n_goals, 2))
 
         with torch.no_grad():
             # Each maze is in one batch
@@ -324,13 +324,14 @@ class PolicyValidationSet(object):
 
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
-                rmse = compute_rmse(
+                rmse, angle_rmse = compute_rmse(
                     directions_pred=outputs.detach().cpu().numpy(),
                     directions_true=directions.detach().cpu().numpy(),
                     wall_overlay=wall_overlay
                 )
 
-                ret[i] = rmse
+                ret[i, 0] = rmse
+                ret[i, 1] = angle_rmse
 
         return ret
 
@@ -339,6 +340,20 @@ def compute_rmse(directions_pred, directions_true, wall_overlay=None):
     """ Computes just the RMSE, without generating a figure """
 
     angles_flat_pred = np.arctan2(directions_pred[:, 1], directions_pred[:, 0])
+    angles_flat_true = np.arctan2(directions_true[:, 1], directions_true[:, 0])
+
+    # Create 3 possible offsets to cover all cases
+    angles_offset_true = np.zeros((len(angles_flat_true), 3))
+    angles_offset_true[:, 0] = angles_flat_true - 2*np.pi
+    angles_offset_true[:, 0] = angles_flat_true
+    angles_offset_true[:, 0] = angles_flat_true + 2 * np.pi
+
+    angles_offset_true -= angles_flat_pred
+    angles_offset_true = np.abs(angles_offset_true)
+    angle_error = np.min(angles_offset_true, axis=1)
+
+    angle_squared_error = angle_error**2
+    angle_rmse = np.sqrt(angle_squared_error[np.where(wall_overlay == 0)].mean())
 
     # NOTE: this assumes the data can be reshaped into a perfect square
     size = int(np.sqrt(angles_flat_pred.shape[0]))
@@ -368,7 +383,7 @@ def compute_rmse(directions_pred, directions_true, wall_overlay=None):
 
     rmse = np.sqrt(mse)
 
-    return rmse
+    return rmse, angle_rmse
 
 
 def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin_memory=False):
