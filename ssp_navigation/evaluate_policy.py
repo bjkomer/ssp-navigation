@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser(
     'Compute the RMSE of a policy on a dataset'
 )
 
+
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
@@ -39,10 +40,15 @@ parser.add_argument('--gpu', type=int, default=-1,
 
 parser.add_argument('--out-file', type=str, default="", help='Output file name')
 
+parser.add_argument('--n-mazes-tested', type=int, default=10, help='Number of mazes to evaluate with')
+parser.add_argument('--n-goals-tested', type=int, default=10, help='Number of goals per maze to evaluate with')
+
 # Tags for the pandas dataframe
 parser.add_argument('--dataset', type=str, default='', choices=['', 'blocks', 'maze', 'mixed'])
 parser.add_argument('--trained-on', type=str, default='', choices=['', 'blocks', 'maze', 'mixed'])
 parser.add_argument('--epochs', type=int, default=1000)
+parser.add_argument('--batch-size', type=int, default=32)
+parser.add_argument('--n-mazes', type=int, default=10, help='Number of mazes from the dataset that were trained on')
 
 args = parser.parse_args()
 
@@ -72,7 +78,7 @@ maze_sps = data['maze_sps']
 goals = data['goals']
 
 n_goals = goals.shape[1]
-n_mazes = fine_mazes.shape[0]
+n_mazes = args.n_mazes_tested  # fine_mazes.shape[0]
 
 if args.gpu == -1:
     device = torch.device('cpu:0')
@@ -138,19 +144,22 @@ else:
 # Create a validation/visualization set to run periodically while training and at the end
 # validation_set = ValidationSet(data=data, maze_indices=np.arange(n_mazes), goal_indices=[0])
 
-# Set up number of mazes/goals to view in the viz set based on how many are available
-if n_mazes < 4:
-    maze_indices = list(np.arange(n_mazes))
-    if n_goals < 4:
-        goal_indices = list(np.arange(n_goals))
-    else:
-        goal_indices = [0, 1, 2, 3]
-else:
-    maze_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    if n_goals < 2:
-        goal_indices = [0]
-    else:
-        goal_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+maze_indices = list(np.arange(args.n_mazes_tested))
+goal_indices = list(np.arange(args.n_goals_tested))
+
+# # Set up number of mazes/goals to view in the viz set based on how many are available
+# if n_mazes < 10:
+#     maze_indices = list(np.arange(n_mazes))
+#     if n_goals < 10:
+#         goal_indices = list(np.arange(n_goals))
+#     else:
+#         goal_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+# else:
+#     maze_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+#     if n_goals < 10:
+#         goal_indices = list(np.arange(n_goals))
+#     else:
+#         goal_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 validation_set = PolicyValidationSet(
     data=data, dim=repr_dim, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
@@ -179,7 +188,7 @@ else:
         output_size=2,
         n_layers=args.n_hidden_layers
     )
-    
+
 model.load_state_dict(torch.load(args.model), strict=True)
 
 model.to(device)
@@ -199,9 +208,17 @@ elif '.csv' in args.out_file:
     df['Encoding'] = args.spatial_encoding
     df['Seed'] = args.seed
     df['Maze ID Type'] = args.maze_id_type
+
+    # Other differentiators
+    df['Number of Mazes Tested'] = args.n_mazes_tested
+    df['Number of Goals Tested'] = args.n_goals_tested
+
     # Command line supplied tags
     df['Dataset'] = args.dataset
     df['Trained On'] = args.trained_on
     df['Epochs'] = args.epochs
+    df['Batch Size'] = args.batch_size
+    df['Number of Mazes'] = args.n_mazes
+
     df.to_csv(args.out_file)
 
