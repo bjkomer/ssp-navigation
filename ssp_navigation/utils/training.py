@@ -324,7 +324,7 @@ class PolicyValidationSet(object):
 
                 wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
-                fig_pred, rmse = plot_path_predictions_image(
+                rmse = compute_rmse(
                     directions_pred=outputs.detach().cpu().numpy(),
                     directions_true=directions.detach().cpu().numpy(),
                     wall_overlay=wall_overlay
@@ -333,6 +333,43 @@ class PolicyValidationSet(object):
                 ret[i] = rmse
 
         return ret
+
+
+def compute_rmse(directions_pred, directions_true, wall_overlay=None):
+    """ Computes just the RMSE, without generating a figure """
+
+    angles_flat_pred = np.arctan2(directions_pred[:, 1], directions_pred[:, 0])
+
+    # NOTE: this assumes the data can be reshaped into a perfect square
+    size = int(np.sqrt(angles_flat_pred.shape[0]))
+
+    if wall_overlay is not None:
+        # Overlay black as the walls, use transparent everywhere else
+        wall_locations = wall_overlay.reshape((size, size))
+        overlay = np.zeros((size, size, 4)).astype(np.uint8)
+
+        for i in range(size):
+            for j in range(size):
+                if wall_locations[i, j]:
+                    overlay[i, j, 3] = 255
+                else:
+                    overlay[i, j, :] = 0
+
+    sin = np.sin(angles_flat_pred)
+    cos = np.cos(angles_flat_pred)
+
+    pred_dir_normalized = np.vstack([cos, sin]).T
+
+    squared_error = (pred_dir_normalized - directions_true)**2
+
+    # only calculate mean across the non-wall elements
+    # mse = np.mean(squared_error[np.where(wall_overlay == 0)])
+    mse = squared_error[np.where(wall_overlay == 0)].mean()
+
+    rmse = np.sqrt(mse)
+
+    return rmse
+
 
 def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin_memory=False):
     # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
