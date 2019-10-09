@@ -344,12 +344,13 @@ def compute_rmse(directions_pred, directions_true, wall_overlay=None):
 
     # Create 3 possible offsets to cover all cases
     angles_offset_true = np.zeros((len(angles_flat_true), 3))
-    angles_offset_true[:, 0] = angles_flat_true - 2*np.pi
-    angles_offset_true[:, 0] = angles_flat_true
-    angles_offset_true[:, 0] = angles_flat_true + 2 * np.pi
+    angles_offset_true[:, 0] = angles_flat_true - 2 * np.pi
+    angles_offset_true[:, 1] = angles_flat_true
+    angles_offset_true[:, 2] = angles_flat_true + 2 * np.pi
 
     angles_offset_true -= angles_flat_pred.reshape(len(angles_flat_pred), 1)
     angles_offset_true = np.abs(angles_offset_true)
+
     angle_error = np.min(angles_offset_true, axis=1)
 
     angle_squared_error = angle_error**2
