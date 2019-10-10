@@ -18,6 +18,7 @@ parser = argparse.ArgumentParser(
     'Train a function that given a maze and a goal location, computes the direction to move to get to that goal'
 )
 
+parser.add_argument('--loss-function', type=str, default='mse', choices=['cosine', 'mse'])
 parser.add_argument('--n-mazes', type=int, default=10, help='Number of mazes from the dataset to train with')
 parser.add_argument('--epochs', type=int, default=250, help='Number of epochs to train for')
 parser.add_argument('--epoch-offset', type=int, default=0,
@@ -251,7 +252,9 @@ if args.logdir != '':
 
 validation_set.run_ground_truth(writer=writer)
 
-criterion = nn.MSELoss()
+# criterion = nn.MSELoss()
+cosine_criterion = nn.CosineEmbeddingLoss()
+mse_criterion = nn.MSELoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
 for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
@@ -269,7 +272,8 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
     # Run the test set for validation
     if e % args.val_period == 0:
         print("Running Val Set")
-        avg_test_loss = 0
+        avg_test_mse_loss = 0
+        avg_test_cosine_loss = 0
         n_test_batches = 0
         with torch.no_grad():
             # Everything is in one batch, so this loop will only happen once
@@ -278,17 +282,22 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
 
                 outputs = model(maze_loc_goal_ssps.to(device))
 
-                loss = criterion(outputs, directions.to(device))
+                mse_loss = mse_criterion(outputs, directions.to(device))
+                cosine_loss = cosine_criterion(outputs, directions.to(device), torch.ones(maze_loc_goal_ssps.size()[0]))
 
-                avg_test_loss += loss.data.item()
+                avg_test_mse_loss += mse_loss.data.item()
+                avg_test_cosine_loss += cosine_loss.data.item()
                 n_test_batches += 1
 
         if n_test_batches > 0:
-            avg_test_loss /= n_test_batches
-            print(avg_test_loss)
-            writer.add_scalar('test_loss', avg_test_loss, e)
+            avg_test_mse_loss /= n_test_batches
+            avg_test_cosine_loss /= n_test_batches
+            print(avg_test_mse_loss, avg_test_cosine_loss)
+            writer.add_scalar('test_mse_loss', avg_test_mse_loss, e)
+            writer.add_scalar('test_cosine_loss', avg_test_cosine_loss, e)
 
-    avg_loss = 0
+    avg_mse_loss = 0
+    avg_cosine_loss = 0
     n_batches = 0
     for i, data in enumerate(trainloader):
         maze_loc_goal_ssps, directions, locs, goals = data
@@ -299,26 +308,37 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
 
         outputs = model(maze_loc_goal_ssps.to(device))
 
-        loss = criterion(outputs, directions.to(device))
+        mse_loss = mse_criterion(outputs, directions.to(device))
+        cosine_loss = cosine_criterion(outputs, directions.to(device), torch.ones(args.batch_size))
         # print(loss.data.item())
-        avg_loss += loss.data.item()
+        avg_mse_loss += mse_loss.data.item()
+        avg_cosine_loss += cosine_loss.data.item()
         n_batches += 1
 
-        loss.backward()
+        if args.loss_function == 'mse':
+            mse_loss.backward()
+        elif args.loss_function == 'cosine':
+            cosine_loss.backward()
 
         optimizer.step()
 
     if args.logdir != '':
         if n_batches > 0:
-            avg_loss /= n_batches
-            print(avg_loss)
-            writer.add_scalar('avg_loss', avg_loss, e + 1)
+            avg_mse_loss /= n_batches
+            avg_cosine_loss /= n_batches
+            print(avg_mse_loss, avg_cosine_loss)
+            writer.add_scalar('avg_mse_loss', avg_mse_loss, e + 1)
+            writer.add_scalar('avg_cosine_loss', avg_cosine_loss, e + 1)
 
         if args.weight_histogram and (e + 1) % 10 == 0:
             for name, param in model.named_parameters():
                 writer.add_histogram('parameters/' + name, param.clone().cpu().data.numpy(), e + 1)
 
+
 print("Testing")
+avg_test_mse_loss = 0
+avg_test_cosine_loss = 0
+n_test_batches = 0
 with torch.no_grad():
     # Everything is in one batch, so this loop will only happen once
     for i, data in enumerate(testloader):
@@ -326,12 +346,20 @@ with torch.no_grad():
 
         outputs = model(maze_loc_goal_ssps.to(device))
 
-        loss = criterion(outputs, directions.to(device))
+        mse_loss = mse_criterion(outputs, directions.to(device))
+        cosine_loss = cosine_criterion(outputs, directions.to(device), torch.ones(maze_loc_goal_ssps.size()[0]))
 
-        # print(loss.data.item())
+        avg_test_mse_loss += mse_loss.data.item()
+        avg_test_cosine_loss += cosine_loss.data.item()
+        n_test_batches += 1
 
-    if args.logdir != '':
-        writer.add_scalar('final_test_loss', loss.data.item())
+if n_test_batches > 0:
+    avg_test_mse_loss /= n_test_batches
+    avg_test_cosine_loss /= n_test_batches
+    print(avg_test_mse_loss, avg_test_cosine_loss)
+    writer.add_scalar('test_mse_loss', avg_test_mse_loss, args.epochs + args.epoch_offset)
+    writer.add_scalar('test_cosine_loss', avg_test_cosine_loss, args.epochs + args.epoch_offset)
+
 
 print("Visualization")
 validation_set.run_validation(model, writer, args.epochs + args.epoch_offset, use_wall_overlay=not args.no_wall_overlay)
