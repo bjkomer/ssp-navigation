@@ -283,7 +283,11 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
                 outputs = model(maze_loc_goal_ssps.to(device))
 
                 mse_loss = mse_criterion(outputs, directions.to(device))
-                cosine_loss = cosine_criterion(outputs, directions.to(device), torch.ones(maze_loc_goal_ssps.size()[0]))
+                cosine_loss = cosine_criterion(
+                    outputs,
+                    directions.to(device),
+                    torch.ones(maze_loc_goal_ssps.size()[0]).to(device)
+                )
 
                 avg_test_mse_loss += mse_loss.data.item()
                 avg_test_cosine_loss += cosine_loss.data.item()
@@ -309,7 +313,11 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
         outputs = model(maze_loc_goal_ssps.to(device))
 
         mse_loss = mse_criterion(outputs, directions.to(device))
-        cosine_loss = cosine_criterion(outputs, directions.to(device), torch.ones(args.batch_size))
+        cosine_loss = cosine_criterion(
+            outputs,
+            directions.to(device),
+            torch.ones(args.batch_size).to(device)
+        )
         # print(loss.data.item())
         avg_mse_loss += mse_loss.data.item()
         avg_cosine_loss += cosine_loss.data.item()
@@ -347,7 +355,11 @@ with torch.no_grad():
         outputs = model(maze_loc_goal_ssps.to(device))
 
         mse_loss = mse_criterion(outputs, directions.to(device))
-        cosine_loss = cosine_criterion(outputs, directions.to(device), torch.ones(maze_loc_goal_ssps.size()[0]))
+        cosine_loss = cosine_criterion(
+            outputs,
+            directions.to(device),
+            torch.ones(maze_loc_goal_ssps.size()[0]).to(device)
+        )
 
         avg_test_mse_loss += mse_loss.data.item()
         avg_test_cosine_loss += cosine_loss.data.item()
