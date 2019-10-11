@@ -24,7 +24,7 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     help='coordinate encoding for agent location and goal')
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
-parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
+parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='random-sp',
                     help='ssp: region corresponding to maze layout.'
                          'one-hot: each maze given a one-hot vector.'
                          'random-sp: each maze given a unique random SP as an ID')
@@ -161,9 +161,30 @@ goal_indices = list(np.arange(args.n_goals_tested))
 #     else:
 #         goal_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+# TODO: create a way to cache the validation set, so it doesn't need to be remade every time for multiple runs.
+#       have an init flag to use the cache, rather than pickle the entire object
+#       check whether the cache exists before generating the object
+
+cache_fname = 'validation_set_cache/{}_{}_dim{}_{}mazes_{}goals_id_{}_seed{}.npz'.format(
+    args.dataset,
+    args.spatial_encoding,
+    args.dim,
+    args.n_mazes_tested,
+    args.n_goals_tested,
+    args.maze_id_type,
+    args.seed,
+)
+
+# if the file exists, load it from cache
+if os.path.exists(cache_fname):
+    cache_file = cache_fname
+else:
+    cache_file = None
+
 validation_set = PolicyValidationSet(
-    data=data, dim=repr_dim, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
-    encoding_func=encoding_func, device=device
+    data=data, dim=repr_dim, maze_sps=maze_sps,
+    maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
+    encoding_func=encoding_func, device=device, cache_fname=cache_fname
 )
 
 # Reset seeds here after generating data

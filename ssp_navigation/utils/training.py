@@ -10,12 +10,13 @@ from ssp_navigation.utils.datasets import MazeDataset
 from ssp_navigation.utils.encodings import encode_one_hot, encode_projection, encode_trig, encode_random_trig, encode_hex_trig
 from ssp_navigation.utils.path import plot_path_predictions, plot_path_predictions_image
 import matplotlib.pyplot as plt
+import os
 
 
 class PolicyValidationSet(object):
 
     def __init__(self, data, dim, maze_sps, maze_indices, goal_indices, subsample=2,
-                 encoding_func=None, device=None,
+                 encoding_func=None, device=None, cache_fname='',
                  # spatial_encoding='ssp',
                  ):
         # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
@@ -50,122 +51,89 @@ class PolicyValidationSet(object):
         # xso = np.linspace(limit_low, limit_high, int(np.sqrt(dim)))
         # yso = np.linspace(limit_low, limit_high, int(np.sqrt(dim)))
 
-        goal_sps = np.zeros((n_mazes, n_goals, dim))
-        for ni in range(goal_sps.shape[0]):
-            for gi in range(goal_sps.shape[1]):
-                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+        if os.path.exists(cache_fname):
+            print("Loading visualization data from cache")
 
-        # # n_mazes by n_goals by dim
-        # if spatial_encoding == 'ssp':
-        #     goal_sps = data['goal_sps']
-        # elif spatial_encoding == 'random':
-        #     goal_sps = np.zeros_like(data['goal_sps'])
-        #     for ni in range(goal_sps.shape[0]):
-        #         for gi in range(goal_sps.shape[1]):
-        #             goal_sps[ni, gi, :] = encode_random(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        # elif spatial_encoding == '2d' or spatial_encoding == 'learned' or spatial_encoding == 'frozen-learned':
-        #     goal_sps = goals.copy()
-        # elif spatial_encoding == '2d-normalized':
-        #     goal_sps = goals.copy()
-        #     goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
-        # elif spatial_encoding == 'one-hot':
-        #     goal_sps = np.zeros((n_mazes, n_goals, len(xso) * len(yso)))
-        #     for ni in range(goal_sps.shape[0]):
-        #         for gi in range(goal_sps.shape[1]):
-        #             goal_sps[ni, gi, :] = encode_one_hot(x=goals[ni, gi, 0], y=goals[ni, gi, 1], xs=xso, ys=yso)
-        # elif spatial_encoding == 'trig':
-        #     goal_sps = np.zeros((n_mazes, n_goals, dim))
-        #     for ni in range(goal_sps.shape[0]):
-        #         for gi in range(goal_sps.shape[1]):
-        #             goal_sps[ni, gi, :] = encode_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        # elif spatial_encoding == 'random-trig':
-        #     goal_sps = np.zeros((n_mazes, n_goals, dim))
-        #     for ni in range(goal_sps.shape[0]):
-        #         for gi in range(goal_sps.shape[1]):
-        #             goal_sps[ni, gi, :] = encode_random_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        # elif spatial_encoding == 'hex-trig':
-        #     goal_sps = np.zeros((n_mazes, n_goals, dim))
-        #     for ni in range(goal_sps.shape[0]):
-        #         for gi in range(goal_sps.shape[1]):
-        #             goal_sps[ni, gi, :] = encode_hex_trig(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim) #TODO: add frequency option
-        # elif spatial_encoding == 'random-proj':
-        #     goal_sps = np.zeros((n_mazes, n_goals, dim))
-        #     for ni in range(goal_sps.shape[0]):
-        #         for gi in range(goal_sps.shape[1]):
-        #             goal_sps[ni, gi, :] = encode_projection(x=goals[ni, gi, 0], y=goals[ni, gi, 1], dim=dim)
-        # else:
-        #     raise NotImplementedError
+            cache_data = np.load(cache_fname)
 
-        self.xs = data['xs']
-        self.ys = data['ys']
+            viz_maze_sps = cache_data['maze_ssp']
+            viz_loc_sps = cache_data['loc_ssps']
+            viz_goal_sps = cache_data['goal_ssps']
+            viz_locs = cache_data['locs']
+            viz_goals = cache_data['goals']
+            viz_output_dirs = cache_data['direction_outputs']
 
-        self.maze_indices = maze_indices
-        self.goal_indices = goal_indices
-        self.n_mazes = len(maze_indices)
-        self.n_goals = len(goal_indices)
+        else:
 
-        res = fine_mazes.shape[1]
-        dim = goal_sps.shape[2]
-        n_samples = int(res/subsample) * int(res/subsample) * self.n_mazes * self.n_goals
+            goal_sps = np.zeros((n_mazes, n_goals, dim))
+            for ni in range(goal_sps.shape[0]):
+                for gi in range(goal_sps.shape[1]):
+                    goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
 
-        # Visualization
-        viz_locs = np.zeros((n_samples, 2))
-        viz_goals = np.zeros((n_samples, 2))
-        viz_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
-        viz_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
-        viz_output_dirs = np.zeros((n_samples, 2))
-        viz_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+            self.xs = data['xs']
+            self.ys = data['ys']
 
-        # Generate data so each batch contains a single maze and goal
-        si = 0  # sample index, increments each time
-        for mi in maze_indices:
-            for gi in goal_indices:
-                for xi in range(0, res, subsample):
-                    for yi in range(0, res, subsample):
-                        loc_x = self.xs[xi]
-                        loc_y = self.ys[yi]
+            self.maze_indices = maze_indices
+            self.goal_indices = goal_indices
+            self.n_mazes = len(maze_indices)
+            self.n_goals = len(goal_indices)
 
-                        viz_locs[si, 0] = loc_x
-                        viz_locs[si, 1] = loc_y
-                        viz_goals[si, :] = goals[mi, gi, :]
+            res = fine_mazes.shape[1]
+            dim = goal_sps.shape[2]
+            n_samples = int(res/subsample) * int(res/subsample) * self.n_mazes * self.n_goals
 
-                        viz_loc_sps[si, :] = encoding_func(x=loc_x, y=loc_y)
+            # Visualization
+            viz_locs = np.zeros((n_samples, 2))
+            viz_goals = np.zeros((n_samples, 2))
+            viz_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
+            viz_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
+            viz_output_dirs = np.zeros((n_samples, 2))
+            viz_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
 
-                        # if spatial_encoding == 'ssp':
-                        #     viz_loc_sps[si, :] = encode_point(loc_x, loc_y, x_axis_sp, y_axis_sp).v
-                        # elif spatial_encoding == 'random':
-                        #     viz_loc_sps[si, :] = encode_random(loc_x, loc_y, dim)
-                        # elif spatial_encoding == '2d' or spatial_encoding == 'learned' or spatial_encoding == 'frozen-learned':
-                        #     viz_loc_sps[si, :] = np.array([loc_x, loc_y])
-                        # elif spatial_encoding == '2d-normalized':
-                        #     viz_loc_sps[si, :] = ((np.array([loc_x, loc_y]) - limit_low)*2 / (limit_high - limit_low)) - 1
-                        # elif spatial_encoding == 'one-hot':
-                        #     viz_loc_sps[si, :] = encode_one_hot(x=loc_x, y=loc_y, xs=xso, ys=yso)
-                        # elif spatial_encoding == 'trig':
-                        #     viz_loc_sps[si, :] = encode_trig(x=loc_x, y=loc_y, dim=dim)
-                        # elif spatial_encoding == 'random-trig':
-                        #     viz_loc_sps[si, :] = encode_random_trig(x=loc_x, y=loc_y, dim=dim)
-                        # elif spatial_encoding == 'hex-trig':
-                        #     viz_loc_sps[si, :] = encode_hex_trig(x=loc_x, y=loc_y, dim=dim)
-                        # elif spatial_encoding == 'random-proj':
-                        #     viz_loc_sps[si, :] = encode_projection(x=loc_x, y=loc_y, dim=dim)
+            # Generate data so each batch contains a single maze and goal
+            si = 0  # sample index, increments each time
+            for mi in maze_indices:
+                for gi in goal_indices:
+                    for xi in range(0, res, subsample):
+                        for yi in range(0, res, subsample):
+                            loc_x = self.xs[xi]
+                            loc_y = self.ys[yi]
 
-                        viz_goal_sps[si, :] = goal_sps[mi, gi, :]
+                            viz_locs[si, 0] = loc_x
+                            viz_locs[si, 1] = loc_y
+                            viz_goals[si, :] = goals[mi, gi, :]
 
-                        viz_output_dirs[si, :] = solved_mazes[mi, gi, xi, yi, :]
+                            viz_loc_sps[si, :] = encoding_func(x=loc_x, y=loc_y)
 
-                        viz_maze_sps[si, :] = maze_sps[mi]
+                            viz_goal_sps[si, :] = goal_sps[mi, gi, :]
 
-                        si += 1
+                            viz_output_dirs[si, :] = solved_mazes[mi, gi, xi, yi, :]
 
-        self.batch_size = int(si / (self.n_mazes * self.n_goals))
+                            viz_maze_sps[si, :] = maze_sps[mi]
 
-        print("Visualization Data Generated")
-        print("Total Samples: {}".format(si))
-        print("Mazes: {}".format(self.n_mazes))
-        print("Goals: {}".format(self.n_goals))
-        print("Batch Size: {}".format(self.batch_size))
-        print("Batches: {}".format(self.n_mazes * self.n_goals))
+                            si += 1
+
+            self.batch_size = int(si / (self.n_mazes * self.n_goals))
+
+            print("Visualization Data Generated")
+            print("Total Samples: {}".format(si))
+            print("Mazes: {}".format(self.n_mazes))
+            print("Goals: {}".format(self.n_goals))
+            print("Batch Size: {}".format(self.batch_size))
+            print("Batches: {}".format(self.n_mazes * self.n_goals))
+
+            if cache_fname != '':
+                print("Saving generated data to cache")
+
+                np.savez(
+                    cache_fname,
+                    maze_ssp=viz_maze_sps,
+                    loc_ssps=viz_loc_sps,
+                    goal_ssps=viz_goal_sps,
+                    locs=viz_locs,
+                    goals=viz_goals,
+                    direction_outputs=viz_output_dirs,
+                )
 
         dataset_viz = MazeDataset(
             maze_ssp=viz_maze_sps,
