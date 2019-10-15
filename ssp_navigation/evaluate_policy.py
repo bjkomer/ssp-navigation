@@ -49,6 +49,7 @@ parser.add_argument('--trained-on', type=str, default='', choices=['', 'blocks',
 parser.add_argument('--epochs', type=int, default=1000)
 parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--n-mazes', type=int, default=10, help='Number of mazes from the dataset that were trained on')
+parser.add_argument('--loss-function', type=str, default='mse', choices=['mse', 'cosine'])
 
 args = parser.parse_args()
 
@@ -241,6 +242,7 @@ elif '.csv' in args.out_file:
     df['Epochs'] = args.epochs
     df['Batch Size'] = args.batch_size
     df['Number of Mazes'] = args.n_mazes
+    df['Loss Function'] = args.loss_function
 
     df.to_csv(args.out_file)
 
