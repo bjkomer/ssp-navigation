@@ -51,6 +51,16 @@ class PolicyValidationSet(object):
         # xso = np.linspace(limit_low, limit_high, int(np.sqrt(dim)))
         # yso = np.linspace(limit_low, limit_high, int(np.sqrt(dim)))
 
+        self.xs = data['xs']
+        self.ys = data['ys']
+
+        self.maze_indices = maze_indices
+        self.goal_indices = goal_indices
+        self.n_mazes = len(maze_indices)
+        self.n_goals = len(goal_indices)
+
+        res = fine_mazes.shape[1]
+
         if os.path.exists(cache_fname):
             print("Loading visualization data from cache")
 
@@ -63,6 +73,8 @@ class PolicyValidationSet(object):
             viz_goals = cache_data['goals']
             viz_output_dirs = cache_data['direction_outputs']
 
+            self.batch_size = res * res
+
         else:
 
             goal_sps = np.zeros((n_mazes, n_goals, dim))
@@ -70,16 +82,6 @@ class PolicyValidationSet(object):
                 for gi in range(goal_sps.shape[1]):
                     goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
 
-            self.xs = data['xs']
-            self.ys = data['ys']
-
-            self.maze_indices = maze_indices
-            self.goal_indices = goal_indices
-            self.n_mazes = len(maze_indices)
-            self.n_goals = len(goal_indices)
-
-            res = fine_mazes.shape[1]
-            dim = goal_sps.shape[2]
             n_samples = int(res/subsample) * int(res/subsample) * self.n_mazes * self.n_goals
 
             # Visualization
