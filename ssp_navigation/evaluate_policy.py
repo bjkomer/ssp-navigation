@@ -50,6 +50,8 @@ parser.add_argument('--epochs', type=int, default=1000)
 parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--n-mazes', type=int, default=10, help='Number of mazes from the dataset that were trained on')
 parser.add_argument('--loss-function', type=str, default='mse', choices=['mse', 'cosine'])
+parser.add_argument('--lr', type=float, default=0.001)
+parser.add_argument('--momentum', type=float, default=0.9)
 
 args = parser.parse_args()
 
@@ -243,6 +245,8 @@ elif '.csv' in args.out_file:
     df['Batch Size'] = args.batch_size
     df['Number of Mazes'] = args.n_mazes
     df['Loss Function'] = args.loss_function
+    df['Learning Rate'] = args.lr
+    df['Momentum'] = args.momentum
 
     df.to_csv(args.out_file)
 
