@@ -52,7 +52,9 @@ class MLP(nn.Module):
         self.output_size = output_size
         self.n_layers = n_layers
 
-        self.inner_layers = []
+        # Need to use ModuleList rather than a regular Python list so that the module correctly keeps track
+        # of the parameters, and allows network.to(device) to work correctly
+        self.inner_layers = nn.ModuleList()
 
         self.input_layer = nn.Linear(self.input_size, self.hidden_size)
         for i in range(self.n_layers - 1):
