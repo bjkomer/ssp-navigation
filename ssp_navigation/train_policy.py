@@ -9,7 +9,7 @@ from tensorboardX import SummaryWriter
 from datetime import datetime
 from ssp_navigation.utils.models import FeedForward, MLP, LearnedEncoding
 from utils.encodings import get_ssp_encode_func, encode_trig, encode_hex_trig, encode_random_trig, \
-    encode_projection, encode_one_hot, get_one_hot_encode_func
+    encode_projection, encode_one_hot, get_one_hot_encode_func, get_pc_gauss_encoding_func
 from spatial_semantic_pointers.utils import encode_random
 from functools import partial
 import nengo.spa as spa
@@ -29,9 +29,11 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                         'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
+                        'pc-gauss', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
+parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
                     help='ssp: region corresponding to maze layout.'
@@ -146,6 +148,13 @@ elif args.spatial_encoding == 'hex-trig':
         dim=args.dim, seed=args.seed,
         frequencies=(args.hex_freq_coef, args.hex_freq_coef*1.4, args.hex_freq_coef*1.4*1.4)
     )
+elif args.spatial_encoding == 'pc-gauss':
+    rng = np.random.RandomState(seed=args.seed)
+    encoding_func = get_pc_gauss_encoding_func(
+        limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma, use_softmax=False, rng=rng
+    )
+elif args.spatial_encoding == 'tile-coding':
+    raise NotImplementedError  # TODO
 elif args.spatial_encoding == 'random-proj':
     encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)
 elif args.spatial_encoding == 'random':
@@ -176,15 +185,6 @@ validation_set = PolicyValidationSet(
     # spatial_encoding=args.spatial_encoding,
     encoding_func=encoding_func, device=device
 )
-
-# # TODO: ensure train and test are different
-# trainloader = create_policy_dataloader(
-#     data=data, n_samples=args.n_train_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func, pin_memory=pin_memory
-# )
-#
-# testloader = create_policy_dataloader(
-#     data=data, n_samples=args.n_test_samples, maze_sps=maze_sps, args=args, encoding_func=encoding_func, pin_memory=pin_memory
-# )
 
 trainloader, testloader = create_train_test_dataloaders(
     data=data, n_train_samples=args.n_train_samples, n_test_samples=args.n_test_samples,

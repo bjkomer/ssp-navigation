@@ -114,6 +114,30 @@ def encode_hex_trig(x, y, dim, frequencies=(1, 1.4, 1.4*1.4), seed=13):
 #     return ret
 
 
+# https://stackoverflow.com/questions/34968722/how-to-implement-the-softmax-function-in-python
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
+
+
+def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, use_softmax=False, rng=np.random):
+    # generate PC centers
+    pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
+
+    # TODO: make this more efficient
+    def encoding_func(x, y):
+        activations = np.zeros((dim,))
+        for i in range(dim):
+            activations[i] = np.exp(-((pc_centers[i, 0] - x) ** 2 + (pc_centers[i, 1] - y) ** 2) / sigma / sigma)
+        if use_softmax:
+            return softmax(activations)
+        else:
+            return activations
+
+    return encoding_func
+
+
 def encode_one_hot(x, y, xs, ys):
     arr = np.zeros((len(xs), len(ys)))
     indx = (np.abs(xs - x)).argmin()
