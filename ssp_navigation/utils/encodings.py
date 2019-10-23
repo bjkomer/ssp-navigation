@@ -138,6 +138,35 @@ def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, u
     return encoding_func
 
 
+def get_tile_encoding_func(limit_low=0, limit_high=1, dim=512, n_tiles=8, n_bins=8, rng=np.random):
+
+    assert dim == n_tiles * n_bins * n_bins
+
+    # Make the random offsets relative to the bin_size
+    bin_size = (limit_high - limit_low) / (n_bins)
+
+    # A series of shiften linspaces
+    xss = np.zeros((n_tiles, n_bins))
+    yss = np.zeros((n_tiles, n_bins))
+
+    # The x and y offsets for each tile. Max offset is half the bin_size
+    offsets = rng.uniform(-bin_size/2, bin_size/2, size=(n_tiles, 2))
+
+    for i in range(n_tiles):
+        xss[i, :] = np.linspace(limit_low + offsets[i, 0], limit_high + offsets[i, 0], n_bins)
+        yss[i, :] = np.linspace(limit_low + offsets[i, 1], limit_high + offsets[i, 1], n_bins)
+
+    def encoding_func(x, y):
+        arr = np.zeros((n_tiles, n_bins, n_bins))
+        for i in range(n_tiles):
+            indx = (np.abs(xss[i, :] - x)).argmin()
+            indy = (np.abs(yss[i, :] - y)).argmin()
+            arr[i, indx, indy] = 1
+        return arr.flatten()
+
+    return encoding_func
+
+
 def encode_one_hot(x, y, xs, ys):
     arr = np.zeros((len(xs), len(ys)))
     indx = (np.abs(xs - x)).argmin()
@@ -244,6 +273,20 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
             encode_hex_trig,
             dim=args.dim, seed=args.seed,
             frequencies=(args.hex_freq_coef, args.hex_freq_coef * 1.4, args.hex_freq_coef * 1.4 * 1.4)
+        )
+    elif args.spatial_encoding == 'pc-gauss':
+        repr_dim = args.dim
+        rng = np.random.RandomState(seed=args.seed)
+        encoding_func = get_pc_gauss_encoding_func(
+            limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma,
+            use_softmax=False, rng=rng
+        )
+    elif args.spatial_encoding == 'tile-coding':
+        repr_dim = args.dim
+        rng = np.random.RandomState(seed=args.seed)
+        encoding_func = get_tile_encoding_func(
+            limit_low=limit_low, limit_high=limit_high,
+            dim=args.dim, n_tiles=args.n_tiles, n_bins=args.n_bins, rng=rng
         )
     elif args.spatial_encoding == 'random-proj':
         repr_dim = args.dim

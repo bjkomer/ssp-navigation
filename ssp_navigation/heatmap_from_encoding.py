@@ -1,4 +1,3 @@
-
 import torch
 import numpy as np
 import argparse
@@ -9,16 +8,20 @@ import nengo.spa as spa
 import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(
-    'Compute the RMSE of a policy on a dataset'
+    'View the similarity heatmap of a point encoded at a particular location'
 )
 
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                         'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
+                        'pc-gauss', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
+parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
+parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
+parser.add_argument('--n-bins', type=int, default=8, help='number of bins for tile coding')
 parser.add_argument('--res', type=int, default=64, help='resolution of the heatmap')
 parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
                     help='ssp: region corresponding to maze layout.'
@@ -41,8 +44,12 @@ args = parser.parse_args()
 
 xs = np.linspace(args.limit_low, args.limit_high, args.res)
 ys = np.linspace(args.limit_low, args.limit_high, args.res)
-activations = np.zeros((args.res, args.res, args.dim))
-normalized_activations = np.zeros((args.res, args.res, args.dim))
+if '2d' in args.spatial_encoding:
+    activations = np.zeros((args.res, args.res, 2))
+    normalized_activations = np.zeros((args.res, args.res, 2))
+else:
+    activations = np.zeros((args.res, args.res, args.dim))
+    normalized_activations = np.zeros((args.res, args.res, args.dim))
 heatmap = np.zeros((args.res, args.res))
 
 rng = np.random.RandomState(seed=args.seed)
@@ -65,8 +72,10 @@ else:
     raise NotImplementedError
 
 
-limit_low = 0
-limit_high = 13
+# limit_low = 0
+# limit_high = 13
+limit_low = args.limit_low
+limit_high = args.limit_high
 
 encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
@@ -96,6 +105,8 @@ normalized_heatmap = np.tensordot(encoded_point, normalized_activations, axes=([
 
 plt.figure()
 plt.imshow(heatmap)
+plt.title('heatmap - dot product')
 plt.figure()
 plt.imshow(normalized_heatmap)
+plt.title('normalized heatmap - cosine similarity')
 plt.show()
