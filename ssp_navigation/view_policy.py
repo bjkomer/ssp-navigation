@@ -18,8 +18,8 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--map-index', type=int, default=0, help='Index of the map in the dataset to use')
 parser.add_argument('--seed', type=int, default=13, help='Seed for training and generating axis SSPs')
-parser.add_argument('--limit-low', type=float, default=-5, help='lowest coordinate value')
-parser.add_argument('--limit-high', type=float, default=5, help='highest coordinate value')
+parser.add_argument('--limit-low', type=float, default=0, help='lowest coordinate value')
+parser.add_argument('--limit-high', type=float, default=13, help='highest coordinate value')
 parser.add_argument('--hidden-size', type=int, default=512)
 parser.add_argument('--n-hidden-layers', type=int, default=1)
 # parser.add_argument('--view-activations', action='store_true', help='view spatial activations of each neuron')
@@ -41,7 +41,7 @@ parser.add_argument('--load-saved-model', type=str, default='', help='Saved mode
 
 args = parser.parse_args()
 
-res = 64
+# res = 64
 subsample = 1
 
 data = np.load(args.dataset)
@@ -52,6 +52,8 @@ np.random.seed(args.seed)
 
 # n_mazes by res by res
 fine_mazes = data['fine_mazes']
+
+res = fine_mazes.shape[1]
 
 # n_mazes by res by res by 2
 solved_mazes = data['solved_mazes']
@@ -76,11 +78,11 @@ y_axis_vec = data['y_axis_sp']
 x_axis_sp = spa.SemanticPointer(data=x_axis_vec)
 y_axis_sp = spa.SemanticPointer(data=y_axis_vec)
 
-limit_low = 0
-limit_high = 13
+# limit_low = 0
+# limit_high = 13
 
-xs = np.linspace(limit_low, limit_high, res)
-ys = np.linspace(limit_low, limit_high, res)
+xs = np.linspace(args.limit_low, args.limit_high, res)
+ys = np.linspace(args.limit_low, args.limit_high, res)
 
 n_goals = goals.shape[1]
 n_mazes = fine_mazes.shape[0]
@@ -256,7 +258,9 @@ def on_click(event):
 
             fig_pred, rmse = plot_path_predictions_image(
                 ax=ax,
-                directions=outputs.detach().numpy(), coords=locs.detach().numpy(), wall_overlay=wall_overlay
+                directions_pred=outputs.detach().numpy(),
+                directions_true=locs.detach().numpy(),
+                wall_overlay=wall_overlay
             )
             ax.set_title("No ground truth given for RMSE")
             fig.canvas.draw()
