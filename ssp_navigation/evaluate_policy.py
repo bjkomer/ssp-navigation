@@ -10,6 +10,7 @@ from spatial_semantic_pointers.utils import encode_random
 from functools import partial
 import nengo.spa as spa
 import pandas as pd
+import sys
 
 parser = argparse.ArgumentParser(
     'Compute the RMSE of a policy on a dataset'
@@ -57,7 +58,8 @@ parser.add_argument('--loss-function', type=str, default='mse', choices=['mse', 
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--momentum', type=float, default=0.9)
 
-parser.add_argument('--use-cache', type=int, default=1)
+parser.add_argument('--use-cache', type=int, default=1, help='if 1, use cache, if 0, do not')
+parser.add_argument('--overwrite-output', type=int, default=1, help='If 0, do not run if output file exists')
 
 args = parser.parse_args()
 
@@ -65,6 +67,12 @@ args = parser.parse_args()
 assert args.out_file != ""
 # only support npz or pandas csv
 assert ('.npz' in args.out_file) or ('.csv' in args.out_file)
+
+if args.overwrite_output == 0:
+    if os.path.exists(args.out_file):
+        print("Output file already exists, skipping")
+        print(args.out_file)
+        sys.exit(0)
 
 dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
 
