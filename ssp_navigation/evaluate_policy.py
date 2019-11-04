@@ -57,6 +57,8 @@ parser.add_argument('--loss-function', type=str, default='mse', choices=['mse', 
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--momentum', type=float, default=0.9)
 
+parser.add_argument('--use-cache', type=int, default=1)
+
 args = parser.parse_args()
 
 # an output file must be specified
@@ -182,21 +184,24 @@ goal_indices = list(np.arange(args.n_goals_tested))
 #       have an init flag to use the cache, rather than pickle the entire object
 #       check whether the cache exists before generating the object
 
-cache_fname = 'validation_set_cache/{}_{}_dim{}_{}mazes_{}goals_id_{}_seed{}.npz'.format(
-    args.dataset,
-    args.spatial_encoding,
-    args.dim,
-    args.n_mazes_tested,
-    args.n_goals_tested,
-    args.maze_id_type,
-    args.seed,
-)
+if args.use_cache == 1:
+    cache_fname = 'validation_set_cache/{}_{}_dim{}_{}mazes_{}goals_id_{}_seed{}.npz'.format(
+        args.dataset,
+        args.spatial_encoding,
+        args.dim,
+        args.n_mazes_tested,
+        args.n_goals_tested,
+        args.maze_id_type,
+        args.seed,
+    )
+else:
+    cache_fname = ''
 
 # if the file exists, load it from cache
-if os.path.exists(cache_fname):
-    cache_file = cache_fname
-else:
-    cache_file = None
+# if os.path.exists(cache_fname):
+#     cache_file = cache_fname
+# else:
+#     cache_file = None
 
 validation_set = PolicyValidationSet(
     data=data, dim=repr_dim, maze_sps=maze_sps,
