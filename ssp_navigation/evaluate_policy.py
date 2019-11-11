@@ -73,6 +73,9 @@ if args.overwrite_output == 0:
         print("Output file already exists, skipping")
         print(args.out_file)
         sys.exit(0)
+    else:
+        print("Generating data for:")
+        print(args.out_file)
 
 dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
 
@@ -193,8 +196,9 @@ goal_indices = list(np.arange(args.n_goals_tested))
 #       check whether the cache exists before generating the object
 
 if args.use_cache == 1:
+    dataset_name = args.dataset_dir.split('/')[-1]
     cache_fname = 'validation_set_cache/{}_{}_dim{}_{}mazes_{}goals_id_{}_seed{}.npz'.format(
-        args.dataset,
+        dataset_name,
         args.spatial_encoding,
         args.dim,
         args.n_mazes_tested,
