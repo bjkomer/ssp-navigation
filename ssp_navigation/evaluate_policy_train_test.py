@@ -76,6 +76,9 @@ if args.overwrite_output == 0:
     else:
         print("Generating data for:")
         print(args.out_file)
+else:
+    print("Generating data for:")
+    print(args.out_file)
 
 dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
 
