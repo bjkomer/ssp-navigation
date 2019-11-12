@@ -357,6 +357,201 @@ def compute_rmse(directions_pred, directions_true, wall_overlay=None):
     return rmse, angle_rmse
 
 
+class PolicyEvaluation(object):
+    """
+    Compute evaluations of a policy on the training set, testing set, and a mixed set
+    """
+
+    def __init__(self, data, dim, maze_sps, #maze_indices, goal_indices,
+
+                 spatial_encoding, n_mazes, n_train_samples=100000, n_test_samples=100000, split_seed=13,
+                 encoding_func=None, device=None, #cache_fname='',
+                 batch_size=64, pin_memory=False
+                 ):
+
+        # based on 'create_train_test_loaders)
+
+        # Either cpu or cuda
+        self.device = device
+
+        rng = np.random.RandomState(seed=split_seed)
+
+        # n_mazes by res by res
+        fine_mazes = data['fine_mazes'][:n_mazes, :, :]
+
+        # n_mazes by res by res by 2
+        solved_mazes = data['solved_mazes'][:n_mazes, :, :, :]
+
+        # n_mazes by n_goals by 2
+        goals = data['goals'][:n_mazes, :, :]
+
+        n_goals = goals.shape[1]
+        # n_mazes = fine_mazes.shape[0]
+
+        # NOTE: only used for one-hot encoded location representation case
+        xs = data['xs']
+        ys = data['ys']
+        xso = np.linspace(xs[0], xs[-1], int(np.sqrt(dim)))
+        yso = np.linspace(ys[0], ys[-1], int(np.sqrt(dim)))
+
+        # n_mazes by n_goals by dim
+        if spatial_encoding == '2d' or spatial_encoding == 'learned' or spatial_encoding == 'frozen-learned':
+            goal_sps = goals.copy()
+        elif spatial_encoding == '2d-normalized':
+            goal_sps = goals.copy()
+            goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+        else:
+            goal_sps = np.zeros((n_mazes, n_goals, dim))
+            for ni in range(n_mazes):
+                for gi in range(n_goals):
+                    goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+
+        xs = data['xs']
+        ys = data['ys']
+
+        free_spaces = np.argwhere(fine_mazes == 0)
+        n_free_spaces = free_spaces.shape[0]
+
+        # The first 75% of the goals can be trained on
+        r_train_goal_split = .75
+        n_train_goal_split = int(n_goals * r_train_goal_split)
+        # The last 75% of the goals can be tested on
+        r_test_goal_split = .75
+        n_test_goal_split = int(n_goals * r_test_goal_split)
+        # This means that 50% of the goals can appear in both
+
+        # The first 75% of the starts can be trained on
+        r_train_start_split = .75
+        n_train_start_split = int(n_free_spaces * r_train_start_split)
+        # The last 75% of the starts can be tested on
+        r_test_start_split = .75
+        n_test_start_split = int(n_free_spaces * r_test_start_split)
+        # This means that 50% of the starts can appear in both
+
+        start_indices = np.arange(n_free_spaces)
+        rng.shuffle(start_indices)
+
+        # NOTE: goal indices probably don't need to be shuffled, as they are already randomly located
+        goal_indices = np.arange(n_goals)
+        rng.shuffle(goal_indices)
+
+        # splits at the quarters for pure train and test based on the data trained on
+        n_pure_goal_split = int(n_goals * .25)
+        n_pure_start_split = int(n_free_spaces * .25)
+
+        for test_set, n_samples in enumerate([n_train_samples, n_test_samples]):
+
+            if test_set == 0:
+                # first 75% is train set
+                sample_indices = np.random.randint(low=0, high=n_train_start_split , size=n_samples)
+                sample_goal_indices = np.random.randint(low=0, high=n_train_goal_split, size=n_samples)
+            elif test_set == 1:
+                # last 25% is test set
+                sample_indices = np.random.randint(low=n_free_spaces - n_pure_start_split, high=n_free_spaces, size=n_samples)
+                sample_goal_indices = np.random.randint(low=n_goals - n_pure_goal_split, high=n_goals, size=n_samples)
+
+            sample_locs = np.zeros((n_samples, 2))
+            sample_goals = np.zeros((n_samples, 2))
+            sample_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
+            sample_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
+            sample_output_dirs = np.zeros((n_samples, 2))
+            sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+
+            for n in range(n_samples):
+                # n_mazes by res by res
+                indices = free_spaces[start_indices[sample_indices[n]], :]
+                maze_index = indices[0]
+                x_index = indices[1]
+                y_index = indices[2]
+                goal_index = goal_indices[sample_goal_indices[n]]
+
+                # 2D coordinate of the agent's current location
+                loc_x = xs[x_index]
+                loc_y = ys[y_index]
+
+                sample_locs[n, 0] = loc_x
+                sample_locs[n, 1] = loc_y
+                sample_goals[n, :] = goals[maze_index, goal_index, :]
+
+                sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+
+                sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
+
+                sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
+
+                sample_maze_sps[n, :] = maze_sps[maze_index]
+
+            dataset = MazeDataset(
+                maze_ssp=sample_maze_sps,
+                loc_ssps=sample_loc_sps,
+                goal_ssps=sample_goal_sps,
+                locs=sample_locs,
+                goals=sample_goals,
+                direction_outputs=sample_output_dirs,
+            )
+
+            if test_set == 0:
+                self.trainloader = torch.utils.data.DataLoader(
+                    dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
+                )
+            elif test_set == 1:
+                self.testloader = torch.utils.data.DataLoader(
+                    dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
+                )
+
+    def get_rmse(self, model):
+
+        with torch.no_grad():
+            n_batches = 0
+            rmse_train = 0
+            angle_rmse_train = 0
+            for i, data in enumerate(self.trainloader):
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+
+                rmse, angle_rmse = compute_rmse(
+                    directions_pred=outputs.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=wall_overlay
+                )
+
+                rmse_train += rmse
+                angle_rmse_train += angle_rmse
+                n_batches += 1
+
+            avg_rmse_train = rmse_train / n_batches
+            avg_angle_rmse_train = angle_rmse_train / n_batches
+
+        with torch.no_grad():
+            n_batches = 0
+            rmse_test = 0
+            angle_rmse_test = 0
+            for i, data in enumerate(self.testloader):
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+
+                rmse, angle_rmse = compute_rmse(
+                    directions_pred=outputs.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=wall_overlay
+                )
+
+                rmse_test += rmse
+                angle_rmse_test += angle_rmse
+                n_batches += 1
+
+            avg_rmse_test = rmse_test / n_batches
+            avg_angle_rmse_test = angle_rmse_test / n_batches
+
+        return avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test
+
+
 def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin_memory=False):
     # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
     # y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
