@@ -230,9 +230,10 @@ avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = valid
 
 
 df = pd.DataFrame(
-    data=[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test],
+    data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test]],
     columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE'],
 )
+
 df['Dimensionality'] = args.dim
 df['Hidden Layer Size'] = args.hidden_size
 df['Hidden Layers'] = args.n_hidden_layers
