@@ -324,7 +324,10 @@ def compute_rmse(directions_pred, directions_true, wall_overlay=None):
     angle_error = np.min(angles_offset_true, axis=1)
 
     angle_squared_error = angle_error**2
-    angle_rmse = np.sqrt(angle_squared_error[np.where(wall_overlay == 0)].mean())
+    if wall_overlay is not None:
+        angle_rmse = np.sqrt(angle_squared_error[np.where(wall_overlay == 0)].mean())
+    else:
+        angle_rmse = np.sqrt(angle_squared_error.mean())
 
     # NOTE: this assumes the data can be reshaped into a perfect square
     size = int(np.sqrt(angles_flat_pred.shape[0]))
@@ -350,7 +353,10 @@ def compute_rmse(directions_pred, directions_true, wall_overlay=None):
 
     # only calculate mean across the non-wall elements
     # mse = np.mean(squared_error[np.where(wall_overlay == 0)])
-    mse = squared_error[np.where(wall_overlay == 0)].mean()
+    if wall_overlay is not None:
+        mse = squared_error[np.where(wall_overlay == 0)].mean()
+    else:
+        mse = squared_error.mean()
 
     rmse = np.sqrt(mse)
 
@@ -510,12 +516,12 @@ class PolicyEvaluation(object):
 
                 outputs = model(maze_loc_goal_ssps.to(self.device))
 
-                wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+                # wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                 rmse, angle_rmse = compute_rmse(
                     directions_pred=outputs.detach().cpu().numpy(),
                     directions_true=directions.detach().cpu().numpy(),
-                    wall_overlay=wall_overlay
+                    wall_overlay=None
                 )
 
                 rmse_train += rmse
@@ -534,12 +540,12 @@ class PolicyEvaluation(object):
 
                 outputs = model(maze_loc_goal_ssps.to(self.device))
 
-                wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+                # wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
 
                 rmse, angle_rmse = compute_rmse(
                     directions_pred=outputs.detach().cpu().numpy(),
                     directions_true=directions.detach().cpu().numpy(),
-                    wall_overlay=wall_overlay
+                    wall_overlay=None
                 )
 
                 rmse_test += rmse
