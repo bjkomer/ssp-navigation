@@ -195,6 +195,8 @@ validation_set = PolicyEvaluation(
     encoding_func=encoding_func, device=device,
     n_train_samples=args.n_train_samples,
     n_test_samples=args.n_test_samples,
+    spatial_encoding=args.spatial_encoding,
+    n_mazes=n_mazes,
 )
 
 # Reset seeds here after generating data
