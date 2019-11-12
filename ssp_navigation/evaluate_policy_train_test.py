@@ -98,7 +98,7 @@ maze_sps = data['maze_sps']
 goals = data['goals']
 
 n_goals = goals.shape[1]
-n_mazes = args.n_mazes_tested  # fine_mazes.shape[0]
+n_mazes = fine_mazes.shape[0]
 
 if args.gpu == -1:
     device = torch.device('cpu:0')
@@ -238,9 +238,9 @@ df['Encoding'] = args.spatial_encoding
 df['Seed'] = args.seed
 df['Maze ID Type'] = args.maze_id_type
 
-# Other differentiators
-df['Number of Mazes Tested'] = args.n_mazes_tested
-df['Number of Goals Tested'] = args.n_goals_tested
+# # Other differentiators
+# df['Number of Mazes Tested'] = args.n_mazes_tested
+# df['Number of Goals Tested'] = args.n_goals_tested
 
 # Command line supplied tags
 df['Dataset'] = args.dataset
