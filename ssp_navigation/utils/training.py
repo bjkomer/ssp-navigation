@@ -329,21 +329,6 @@ def compute_rmse(directions_pred, directions_true, wall_overlay=None):
     else:
         angle_rmse = np.sqrt(angle_squared_error.mean())
 
-    # NOTE: this assumes the data can be reshaped into a perfect square
-    size = int(np.sqrt(angles_flat_pred.shape[0]))
-
-    if wall_overlay is not None:
-        # Overlay black as the walls, use transparent everywhere else
-        wall_locations = wall_overlay.reshape((size, size))
-        overlay = np.zeros((size, size, 4)).astype(np.uint8)
-
-        for i in range(size):
-            for j in range(size):
-                if wall_locations[i, j]:
-                    overlay[i, j, 3] = 255
-                else:
-                    overlay[i, j, :] = 0
-
     sin = np.sin(angles_flat_pred)
     cos = np.cos(angles_flat_pred)
 
