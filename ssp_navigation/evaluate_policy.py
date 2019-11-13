@@ -278,6 +278,8 @@ elif '.csv' in args.out_file:
     df['Loss Function'] = args.loss_function
     df['Learning Rate'] = args.lr
     df['Momentum'] = args.momentum
+    df['Sigma'] = args.pc_gauss_sigma
+    df['Hex Freq Coef'] = args.hex_freq_coef
 
     df.to_csv(args.out_file)
 
