@@ -434,7 +434,7 @@ class PolicyEvaluation(object):
 
             if test_set == 0:
                 # first 75% is train set
-                sample_indices = np.random.randint(low=0, high=n_train_start_split , size=n_samples)
+                sample_indices = np.random.randint(low=0, high=n_train_start_split, size=n_samples)
                 sample_goal_indices = np.random.randint(low=0, high=n_train_goal_split, size=n_samples)
             elif test_set == 1:
                 # last 25% is test set

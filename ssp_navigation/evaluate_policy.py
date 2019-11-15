@@ -244,7 +244,11 @@ else:
         n_layers=args.n_hidden_layers
     )
 
-model.load_state_dict(torch.load(args.model), strict=True)
+if args.gpu == -1:
+    model.load_state_dict(torch.load(args.model, map_location=lambda storage, loc: storage), strict=True)
+else:
+    model.load_state_dict(torch.load(args.model), strict=True)
+
 
 model.to(device)
 
