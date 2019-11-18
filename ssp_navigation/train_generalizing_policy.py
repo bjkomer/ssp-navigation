@@ -39,7 +39,7 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
-parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
+parser.add_argument('--n-bins', type=int, default=8, help='number of bins for tile coding')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--seed', type=int, default=13, help='Seed for training and generating axis SSPs')
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the encoding')
