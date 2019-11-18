@@ -72,6 +72,30 @@ class MazeDataset(data.Dataset):
         return self.goals.shape[0]
 
 
+class SingleMazeDataset(data.Dataset):
+    """
+    Just one maze, no ID vector
+    """
+
+    def __init__(self, loc_ssps, goal_ssps, locs, goals, direction_outputs):
+
+        self.loc_ssps = loc_ssps.astype(np.float32)
+        self.goal_ssps = goal_ssps.astype(np.float32)
+        self.locs = locs.astype(np.float32)
+        self.goals = goals.astype(np.float32)
+        self.direction_outputs = direction_outputs.astype(np.float32)
+
+        # Concatenate input
+        self.combined_input = np.hstack([self.loc_ssps, self.goal_ssps])
+
+    def __getitem__(self, index):
+
+        return self.combined_input[index], self.direction_outputs[index], self.locs[index], self.goals[index]
+
+    def __len__(self):
+        return self.goals.shape[0]
+
+
 class GenericDataset(data.Dataset):
 
     def __init__(self, inputs, outputs):

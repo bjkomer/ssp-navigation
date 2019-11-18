@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.utils.data as data
 from spatial_semantic_pointers.utils import encode_point, encode_random, ssp_to_loc, ssp_to_loc_v, get_heatmap_vectors
 from spatial_semantic_pointers.plots import plot_predictions, plot_predictions_v
-from ssp_navigation.utils.datasets import MazeDataset
+from ssp_navigation.utils.datasets import MazeDataset, SingleMazeDataset
 from ssp_navigation.utils.encodings import encode_one_hot, encode_projection, encode_trig, encode_random_trig, encode_hex_trig
 from ssp_navigation.utils.path import plot_path_predictions, plot_path_predictions_image
 import matplotlib.pyplot as plt
@@ -543,6 +543,80 @@ class PolicyEvaluation(object):
         return avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test
 
 
+class OpenEnvPolicyValidationSet(PolicyValidationSet):
+
+    def __init__(self, dim=512, n_goals=5, res=64, limit_low=-5.0, limit_high=5.0,
+                 encoding_func=None, device=None, cache_fname='', seed=13
+                 ):
+
+        rng = np.random.RandomState(seed=seed)
+
+        # Either cpu or cuda
+        self.device = device
+
+        self.n_goals = 5
+        self.n_mazes = 1
+
+        self.xs = np.linspace(limit_low, limit_high, res)
+        self.ys = np.linspace(limit_low, limit_high, res)
+
+        goal_sps = np.zeros((n_goals, dim))
+        goals = np.zeros((n_goals, 2))
+        for gi in range(n_goals):
+            goals[gi, :] = rng.uniform(limit_low, limit_high, 2)
+            goal_sps[gi, :] = encoding_func(x=goals[gi, 0], y=goals[gi, 1])
+
+        n_samples = n_goals * res * res
+
+        # Visualization
+        viz_locs = np.zeros((n_samples, 2))
+        viz_goals = np.zeros((n_samples, 2))
+        viz_loc_sps = np.zeros((n_samples, dim))
+        viz_goal_sps = np.zeros((n_samples, dim))
+        viz_output_dirs = np.zeros((n_samples, 2))
+
+        # Generate data so each batch contains a single maze and goal
+        si = 0  # sample index, increments each time
+        for gi in range(n_goals):
+            for xi in range(res):
+                for yi in range(res):
+                    loc_x = self.xs[xi]
+                    loc_y = self.ys[yi]
+
+                    viz_locs[si, 0] = loc_x
+                    viz_locs[si, 1] = loc_y
+                    viz_goals[si, :] = goals[gi, :]
+
+                    viz_loc_sps[si, :] = encoding_func(x=loc_x, y=loc_y)
+
+                    viz_goal_sps[si, :] = goal_sps[gi, :]
+
+                    viz_output_dirs[si, :] = direction(viz_locs[si, :], viz_goals[si, :])
+
+                    si += 1
+
+        self.batch_size = int(si / n_goals)
+
+        print("Visualization Data Generated")
+        print("Total Samples: {}".format(si))
+        print("Goals: {}".format(n_goals))
+        print("Batch Size: {}".format(self.batch_size))
+        print("Batches: {}".format(n_goals))
+
+        dataset_viz = SingleMazeDataset(
+            loc_ssps=viz_loc_sps,
+            goal_ssps=viz_goal_sps,
+            locs=viz_locs,
+            goals=viz_goals,
+            direction_outputs=viz_output_dirs,
+        )
+
+        # Each batch will contain the samples for one maze. Must not be shuffled
+        self.vizloader = torch.utils.data.DataLoader(
+            dataset_viz, batch_size=self.batch_size, shuffle=False, num_workers=0,
+        )
+
+
 def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin_memory=False):
     # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
     # y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
@@ -791,6 +865,110 @@ def create_train_test_dataloaders(
         elif test_set == 1:
             testloader = torch.utils.data.DataLoader(
                 dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
+            )
+
+    return trainloader, testloader
+
+
+def direction(loc, goal):
+    """
+    Outputs the correct policy direction to move from loc to goal in an open arena
+    """
+
+    diff = goal - loc
+
+    diff /= np.linalg.norm(diff)
+
+    return diff
+
+
+def create_generalizing_train_test_dataloaders(
+        generalization_type,
+        n_train_samples,
+        n_test_samples,
+        limit_low,
+        limit_high,
+        encoding_func,
+        dim,
+        batch_size,
+        pin_memory=False):
+
+    # The span of the space
+    size = limit_high - limit_low
+
+    if generalization_type == 'interpolate':
+        limit_low_center = limit_low + size/4
+        limit_high_center = limit_high - size/4
+
+        def train_set(pos):
+            """
+            Returns True if the point is valid for the training set, and False if it is valid for the test set
+            """
+            if pos[0] > limit_low_center and pos[0] < limit_high_center and pos[1] > limit_low_center and pos[1] < limit_high_center:
+                return False  # test set
+            else:
+                return True  # train set
+
+    elif generalization_type == 'extrapolate':
+        limit_low_center = limit_low + size/6
+        limit_high_center = limit_high - size/6
+
+        def train_set(pos):
+            """
+            Returns True if the point is valid for the training set, and False if it is valid for the test set
+            """
+            if pos[0] > limit_low_center and pos[0] < limit_high_center and pos[1] > limit_low_center and pos[1] < limit_high_center:
+                return True  # train set
+            else:
+                return False  # test set
+    elif generalization_type == 'patches':
+        raise NotImplementedError
+
+    for test_set, n_samples in enumerate([n_train_samples, n_test_samples]):
+
+        sample_locs = np.zeros((n_samples, 2))
+        sample_goals = np.zeros((n_samples, 2))
+        sample_loc_sps = np.zeros((n_samples, dim))
+        sample_goal_sps = np.zeros((n_samples, dim))
+        sample_output_dirs = np.zeros((n_samples, 2))
+
+        for n in range(n_samples):
+
+            # TODO: should goals be allowed to be anywhere, or should they be restricted as well?
+
+            # Keep sampling until a position is found that corresponds with the appropriate dataset
+            loc = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
+            while train_set(loc) == test_set:
+                loc = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
+
+            goal = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
+            while train_set(goal) == test_set:
+                goal = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
+
+            sample_locs[n, :] = loc
+            sample_goals[n, :] = goal
+
+            sample_loc_sps[n, :] = encoding_func(x=loc[0], y=loc[1])
+
+            sample_goal_sps[n, :] = encoding_func(x=goal[0], y=goal[1])
+
+            sample_output_dirs[n, :] = direction(loc, goal)
+
+        dataset = SingleMazeDataset(
+            loc_ssps=sample_loc_sps,
+            goal_ssps=sample_goal_sps,
+            locs=sample_locs,
+            goals=sample_goals,
+            direction_outputs=sample_output_dirs,
+        )
+
+        if test_set == 0:
+            trainloader = torch.utils.data.DataLoader(
+                dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
+            )
+        elif test_set == 1:
+            testloader = torch.utils.data.DataLoader(
+                dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
             )
 
     return trainloader, testloader
