@@ -886,6 +886,8 @@ def create_generalizing_train_test_dataloaders(
         generalization_type,
         n_train_samples,
         n_test_samples,
+        all_starts,
+        all_goals,
         limit_low,
         limit_high,
         encoding_func,
@@ -938,12 +940,14 @@ def create_generalizing_train_test_dataloaders(
 
             # Keep sampling until a position is found that corresponds with the appropriate dataset
             loc = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
-            while train_set(loc) == test_set:
-                loc = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
+            if ((not all_starts) and test_set == 0) or test_set == 1:  # have the option to use all starts for training
+                while train_set(loc) == test_set:
+                    loc = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
 
             goal = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
-            while train_set(goal) == test_set:
-                goal = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
+            if ((not all_goals) and test_set == 0) or test_set == 1:  # have the option to use all goals for training
+                while train_set(goal) == test_set:
+                    goal = np.random.uniform(low=limit_low, high=limit_high, size=(2,))
 
             sample_locs[n, :] = loc
             sample_goals[n, :] = goal

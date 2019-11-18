@@ -21,6 +21,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--generalization-type', type=str, default='interpolate',
                     choices=['interpolate', 'extrapolate', 'patches'],
                     help='Which part of the space should be left out during training')
+parser.add_argument('--all-starts', action='store_true', help='all start locations can be trained on')
+parser.add_argument('--all-goals', action='store_true', help='all goal locations can be trained on')
 parser.add_argument('--loss-function', type=str, default='mse', choices=['cosine', 'mse'])
 parser.add_argument('--epochs', type=int, default=250, help='Number of epochs to train for')
 parser.add_argument('--epoch-offset', type=int, default=0,
@@ -135,7 +137,7 @@ else:
 # Create a validation/visualization set to run periodically while training and at the end
 
 validation_set = OpenEnvPolicyValidationSet(
-    dim=args.dim,
+    dim=repr_dim,
     n_goals=5,
     res=64,
     limit_low=args.limit_low,
@@ -146,10 +148,12 @@ validation_set = OpenEnvPolicyValidationSet(
 
 
 trainloader, testloader = create_generalizing_train_test_dataloaders(
-    dim=args.dim,
+    dim=repr_dim,
     generalization_type=args.generalization_type,
     n_train_samples=args.n_train_samples,
     n_test_samples=args.n_test_samples,
+    all_starts=args.all_starts,
+    all_goals=args.all_goals,
     limit_low=args.limit_low,
     limit_high=args.limit_high,
     encoding_func=encoding_func,
