@@ -176,11 +176,12 @@ def encode_one_hot(x, y, xs, ys):
     return arr.flatten()
 
 
-def get_ssp_encode_func(dim, seed):
+def get_ssp_encode_func(dim, seed, scaling=1.0):
     """
     Generates an encoding function for SSPs that only takes (x,y) as input
     :param dim: dimension of the SSP
     :param seed: seed for randomly choosing axis vectors
+    :param scaling: scaling the resolution of the space
     :return:
     """
     rng = np.random.RandomState(seed=seed)
@@ -188,7 +189,7 @@ def get_ssp_encode_func(dim, seed):
     y_axis_sp = make_good_unitary(dim=dim, rng=rng)
 
     def encode_ssp(x, y):
-        return encode_point(x, y, x_axis_sp, y_axis_sp).v
+        return encode_point(x * scaling, y * scaling, x_axis_sp, y_axis_sp).v
 
     return encode_ssp
 
@@ -257,7 +258,7 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
             return ((np.array([x, y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
     elif args.spatial_encoding == 'ssp':
         repr_dim = args.dim
-        encoding_func = get_ssp_encode_func(args.dim, args.seed)
+        encoding_func = get_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling)
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
