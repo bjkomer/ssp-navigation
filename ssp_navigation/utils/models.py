@@ -83,7 +83,9 @@ class LearnedEncoding(nn.Module):
         self.output_size = output_size
         self.n_layers = n_layers
 
-        self.inner_layers = []
+        # Need to use ModuleList rather than a regular Python list so that the module correctly keeps track
+        # of the parameters, and allows network.to(device) to work correctly
+        self.inner_layers = nn.ModuleList()
 
         self.encoding_layer = nn.Linear(self.input_size, self.encoding_size)
 
