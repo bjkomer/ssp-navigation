@@ -138,6 +138,23 @@ def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, u
     return encoding_func
 
 
+def get_pc_dog_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, diff_sigma=0.5, use_softmax=False, rng=np.random):
+    # generate PC centers
+    pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
+
+    # TODO: make this more efficient
+    def encoding_func(x, y):
+        activations = np.zeros((dim,))
+        for i in range(dim):
+            activations[i] = np.exp(-((pc_centers[i, 0] - x) ** 2 + (pc_centers[i, 1] - y) ** 2) / sigma / sigma) - np.exp(-((pc_centers[i, 0] - x) ** 2 + (pc_centers[i, 1] - y) ** 2) / diff_sigma / diff_sigma)
+        if use_softmax:
+            return softmax(activations)
+        else:
+            return activations
+
+    return encoding_func
+
+
 def get_tile_encoding_func(limit_low=0, limit_high=1, dim=512, n_tiles=8, n_bins=8, rng=np.random):
 
     assert dim == n_tiles * n_bins * n_bins
@@ -280,6 +297,13 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
         rng = np.random.RandomState(seed=args.seed)
         encoding_func = get_pc_gauss_encoding_func(
             limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma,
+            use_softmax=False, rng=rng
+        )
+    elif args.spatial_encoding == 'pc-dog':
+        repr_dim = args.dim
+        rng = np.random.RandomState(seed=args.seed)
+        encoding_func = get_pc_dog_encoding_func(
+            limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma, diff_sigma=args.pc_diff_sigma,
             use_softmax=False, rng=rng
         )
     elif args.spatial_encoding == 'tile-coding':
