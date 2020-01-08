@@ -8,10 +8,11 @@ import json
 from tensorboardX import SummaryWriter
 from datetime import datetime
 from ssp_navigation.utils.models import FeedForward, MLP, LearnedEncoding
-from utils.encodings import get_ssp_encode_func, encode_trig, encode_hex_trig, encode_random_trig, \
-    encode_projection, encode_one_hot, get_one_hot_encode_func, get_pc_gauss_encoding_func, get_tile_encoding_func
-from spatial_semantic_pointers.utils import encode_random
-from functools import partial
+# from utils.encodings import get_ssp_encode_func, encode_trig, encode_hex_trig, encode_random_trig, \
+#     encode_projection, encode_one_hot, get_one_hot_encode_func, get_pc_gauss_encoding_func, get_tile_encoding_func
+# from spatial_semantic_pointers.utils import encode_random
+from ssp_navigation.utils.encodings import get_encoding_function
+# from functools import partial
 import nengo.spa as spa
 
 parser = argparse.ArgumentParser(
@@ -29,18 +30,21 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                         'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
-                        'pc-gauss', 'tile-coding'
+                        'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
+parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
+parser.add_argument('--ssp-scaling', type=float, default=1.0)
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
                     help='ssp: region corresponding to maze layout.'
                          'one-hot: each maze given a one-hot vector.'
                          'random-sp: each maze given a unique random SP as an ID')
+parser.add_argument('--maze-id-dim', default=256, help='Dimensionality for the Maze ID')
 parser.add_argument('--seed', type=int, default=13, help='Seed for training and generating axis SSPs')
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the SSPs')
 parser.add_argument('--n-train-samples', type=int, default=50000, help='Number of training samples')
@@ -105,68 +109,69 @@ else:
     pin_memory = True
 
 if args.maze_id_type == 'ssp':
-    id_size = args.dim
+    id_size = args.maze_id_dim
 elif args.maze_id_type == 'one-hot':
     id_size = n_mazes
     # overwrite data
     maze_sps = np.eye(n_mazes)
 elif args.maze_id_type == 'random-sp':
-    id_size = args.dim
-    maze_sps = np.zeros((n_mazes, args.dim))
+    id_size = args.maze_id_dim
+    maze_sps = np.zeros((n_mazes, args.maze_id_dim))
     # overwrite data
     for mi in range(n_mazes):
-        maze_sps[mi, :] = spa.SemanticPointer(args.dim).v
+        maze_sps[mi, :] = spa.SemanticPointer(args.maze_id_dim).v
 else:
     raise NotImplementedError
 
 limit_low = 0
 limit_high = data['coarse_mazes'].shape[2]
 
-# Dimension of location representation is dependent on the encoding used
-repr_dim = args.dim
+# # Dimension of location representation is dependent on the encoding used
+# repr_dim = args.dim
+#
+# # Generate the encoding function
+# if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+#     repr_dim = 2
+#     # no special encoding required for these cases
+#     def encoding_func(x, y):
+#         return np.array([x, y])
+# elif args.spatial_encoding == '2d-normalized':
+#     repr_dim = 2
+#     def encoding_func(x, y):
+#         return ((np.array([x, y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
+# elif args.spatial_encoding == 'ssp':
+#     encoding_func = get_ssp_encode_func(args.dim, args.seed)
+# elif args.spatial_encoding == 'one-hot':
+#     repr_dim = int(np.sqrt(args.dim)) ** 2
+#     encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
+# elif args.spatial_encoding == 'trig':
+#     encoding_func = partial(encode_trig, dim=args.dim)
+# elif args.spatial_encoding == 'random-trig':
+#     encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed)
+# elif args.spatial_encoding == 'hex-trig':
+#     encoding_func = partial(
+#         encode_hex_trig,
+#         dim=args.dim, seed=args.seed,
+#         frequencies=(args.hex_freq_coef, args.hex_freq_coef*1.4, args.hex_freq_coef*1.4*1.4)
+#     )
+# elif args.spatial_encoding == 'pc-gauss':
+#     rng = np.random.RandomState(seed=args.seed)
+#     encoding_func = get_pc_gauss_encoding_func(
+#         limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma, use_softmax=False, rng=rng
+#     )
+# elif args.spatial_encoding == 'tile-coding':
+#     rng = np.random.RandomState(seed=args.seed)
+#     encoding_func = get_tile_encoding_func(
+#         limit_low=limit_low, limit_high=limit_high, dim=args.dim, n_tiles=args.n_tiles, n_bins=args.n_bins, rng=rng
+#     )
+# elif args.spatial_encoding == 'random-proj':
+#     encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)
+# elif args.spatial_encoding == 'random':
+#     encoding_func = partial(encode_random, dim=args.dim)
+# else:
+#     raise NotImplementedError
 
-# Generate the encoding function
-if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
-    repr_dim = 2
-    # no special encoding required for these cases
-    def encoding_func(x, y):
-        return np.array([x, y])
-elif args.spatial_encoding == '2d-normalized':
-    repr_dim = 2
-    def encoding_func(x, y):
-        return ((np.array([x, y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
-elif args.spatial_encoding == 'ssp':
-    encoding_func = get_ssp_encode_func(args.dim, args.seed)
-elif args.spatial_encoding == 'one-hot':
-    repr_dim = int(np.sqrt(args.dim)) ** 2
-    encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
-elif args.spatial_encoding == 'trig':
-    encoding_func = partial(encode_trig, dim=args.dim)
-elif args.spatial_encoding == 'random-trig':
-    encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed)
-elif args.spatial_encoding == 'hex-trig':
-    encoding_func = partial(
-        encode_hex_trig,
-        dim=args.dim, seed=args.seed,
-        frequencies=(args.hex_freq_coef, args.hex_freq_coef*1.4, args.hex_freq_coef*1.4*1.4)
-    )
-elif args.spatial_encoding == 'pc-gauss':
-    rng = np.random.RandomState(seed=args.seed)
-    encoding_func = get_pc_gauss_encoding_func(
-        limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma, use_softmax=False, rng=rng
-    )
-elif args.spatial_encoding == 'tile-coding':
-    rng = np.random.RandomState(seed=args.seed)
-    encoding_func = get_tile_encoding_func(
-        limit_low=limit_low, limit_high=limit_high, dim=args.dim, n_tiles=args.n_tiles, n_bins=args.n_bins, rng=rng
-    )
-elif args.spatial_encoding == 'random-proj':
-    encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)
-elif args.spatial_encoding == 'random':
-    encoding_func = partial(encode_random, dim=args.dim)
-else:
-    raise NotImplementedError
-
+encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
 # Create a validation/visualization set to run periodically while training and at the end
 # validation_set = ValidationSet(data=data, maze_indices=np.arange(n_mazes), goal_indices=[0])
