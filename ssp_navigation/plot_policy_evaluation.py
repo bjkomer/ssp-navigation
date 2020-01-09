@@ -163,6 +163,13 @@ elif 'lr_exps' in args.folder:
     sns.barplot(data=df, x='Dimensionality', y='Train Angular RMSE', hue='Momentum')
 
 
+elif 'loss_exps' in args.folder:
+    plt.figure()
+    sns.barplot(data=df, x='Dimensionality', y='Angular RMSE', hue='Loss Function')
+
+    # plt.figure()
+    # sns.barplot(data=df, x='Dimensionality', y='Train Angular RMSE', hue='Loss Function')
+
 elif 'large_map_exps' in args.folder:
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Dimensionality')
