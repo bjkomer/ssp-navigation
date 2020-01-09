@@ -58,6 +58,7 @@ parser.add_argument('--weight-histogram', action='store_true', help='Save histog
 parser.add_argument('--res', type=int, default=64, help='resolution of the fine maze')
 parser.add_argument('--dataset-dir', type=str, default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed')
 parser.add_argument('--no-wall-overlay', action='store_true', help='Do not use rainbow colours and wall overlay in validation images')
+parser.add_argument('--optimizer', type=str, default='rmsprop', choices=['rmsprop', 'adam'])
 parser.add_argument('--variant-subfolder', type=str, default='',
                     help='Optional custom subfolder')
 parser.add_argument('--logdir', type=str, default='policy',
@@ -125,51 +126,6 @@ else:
 
 limit_low = 0
 limit_high = data['coarse_mazes'].shape[2]
-
-# # Dimension of location representation is dependent on the encoding used
-# repr_dim = args.dim
-#
-# # Generate the encoding function
-# if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
-#     repr_dim = 2
-#     # no special encoding required for these cases
-#     def encoding_func(x, y):
-#         return np.array([x, y])
-# elif args.spatial_encoding == '2d-normalized':
-#     repr_dim = 2
-#     def encoding_func(x, y):
-#         return ((np.array([x, y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
-# elif args.spatial_encoding == 'ssp':
-#     encoding_func = get_ssp_encode_func(args.dim, args.seed)
-# elif args.spatial_encoding == 'one-hot':
-#     repr_dim = int(np.sqrt(args.dim)) ** 2
-#     encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
-# elif args.spatial_encoding == 'trig':
-#     encoding_func = partial(encode_trig, dim=args.dim)
-# elif args.spatial_encoding == 'random-trig':
-#     encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed)
-# elif args.spatial_encoding == 'hex-trig':
-#     encoding_func = partial(
-#         encode_hex_trig,
-#         dim=args.dim, seed=args.seed,
-#         frequencies=(args.hex_freq_coef, args.hex_freq_coef*1.4, args.hex_freq_coef*1.4*1.4)
-#     )
-# elif args.spatial_encoding == 'pc-gauss':
-#     rng = np.random.RandomState(seed=args.seed)
-#     encoding_func = get_pc_gauss_encoding_func(
-#         limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma, use_softmax=False, rng=rng
-#     )
-# elif args.spatial_encoding == 'tile-coding':
-#     rng = np.random.RandomState(seed=args.seed)
-#     encoding_func = get_tile_encoding_func(
-#         limit_low=limit_low, limit_high=limit_high, dim=args.dim, n_tiles=args.n_tiles, n_bins=args.n_bins, rng=rng
-#     )
-# elif args.spatial_encoding == 'random-proj':
-#     encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)
-# elif args.spatial_encoding == 'random':
-#     encoding_func = partial(encode_random, dim=args.dim)
-# else:
-#     raise NotImplementedError
 
 encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
@@ -265,7 +221,13 @@ validation_set.run_ground_truth(writer=writer)
 # criterion = nn.MSELoss()
 cosine_criterion = nn.CosineEmbeddingLoss()
 mse_criterion = nn.MSELoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+
+if args.optimizer == 'rmsprop':
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+elif args.optimizer == 'adam':
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+else:
+    raise NotImplementedError
 
 for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
     print('Epoch: {0}'.format(e + 1))
