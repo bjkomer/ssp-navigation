@@ -107,10 +107,15 @@ encoded_point = encoding_func(args.x_pos, args.y_pos)
 heatmap = np.tensordot(encoded_point, activations, axes=([0], [2]))
 normalized_heatmap = np.tensordot(encoded_point, normalized_activations, axes=([0], [2]))
 
+vmin=-1
+vmin=0
+vmax=1
+# vmin=None
+# vmax=None
 plt.figure()
-plt.imshow(heatmap)
+plt.imshow(heatmap, vmin=vmin, vmax=vmax)
 plt.title('heatmap - dot product')
 plt.figure()
-plt.imshow(normalized_heatmap)
+plt.imshow(normalized_heatmap, vmin=vmin, vmax=vmax)
 plt.title('normalized heatmap - cosine similarity')
 plt.show()
