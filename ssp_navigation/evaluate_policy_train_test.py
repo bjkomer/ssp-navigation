@@ -155,20 +155,6 @@ encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit
 #     cache_fname = ''
 
 
-validation_set = PolicyEvaluation(
-    data=data, dim=repr_dim, maze_sps=maze_sps,
-    encoding_func=encoding_func, device=device,
-    n_train_samples=args.n_train_samples,
-    n_test_samples=args.n_test_samples,
-    spatial_encoding=args.spatial_encoding,
-    n_mazes=n_mazes,
-)
-
-# Reset seeds here after generating data
-torch.manual_seed(args.seed)
-np.random.seed(args.seed)
-
-
 # input is maze, loc, goal ssps, output is 2D direction to move
 if 'learned' in args.spatial_encoding:
     model = LearnedEncoding(
@@ -193,6 +179,19 @@ else:
     model.load_state_dict(torch.load(args.model), strict=True)
 
 model.to(device)
+
+validation_set = PolicyEvaluation(
+    data=data, dim=repr_dim, maze_sps=maze_sps,
+    encoding_func=encoding_func, device=device,
+    n_train_samples=args.n_train_samples,
+    n_test_samples=args.n_test_samples,
+    spatial_encoding=args.spatial_encoding,
+    n_mazes=n_mazes,
+)
+
+# Reset seeds here after generating data
+torch.manual_seed(args.seed)
+np.random.seed(args.seed)
 
 avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = validation_set.get_rmse(model)
 

@@ -129,51 +129,6 @@ else:
 limit_low = 0
 limit_high = data['coarse_mazes'].shape[2]
 
-# # Dimension of location representation is dependent on the encoding used
-# repr_dim = args.dim
-#
-# # Generate the encoding function
-# if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
-#     repr_dim = 2
-#     # no special encoding required for these cases
-#     def encoding_func(x, y):
-#         return np.array([x, y])
-# elif args.spatial_encoding == '2d-normalized':
-#     repr_dim = 2
-#     def encoding_func(x, y):
-#         return ((np.array([x, y]) - limit_low) * 2 / (limit_high - limit_low)) - 1
-# elif args.spatial_encoding == 'ssp':
-#     encoding_func = get_ssp_encode_func(args.dim, args.seed)
-# elif args.spatial_encoding == 'one-hot':
-#     repr_dim = int(np.sqrt(args.dim)) ** 2
-#     encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
-# elif args.spatial_encoding == 'trig':
-#     encoding_func = partial(encode_trig, dim=args.dim)
-# elif args.spatial_encoding == 'random-trig':
-#     encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed)
-# elif args.spatial_encoding == 'hex-trig':
-#     encoding_func = partial(
-#         encode_hex_trig,
-#         dim=args.dim, seed=args.seed,
-#         frequencies=(args.hex_freq_coef, args.hex_freq_coef*1.4, args.hex_freq_coef*1.4*1.4)
-#     )
-# elif args.spatial_encoding == 'pc-gauss':
-#     rng = np.random.RandomState(seed=args.seed)
-#     encoding_func = get_pc_gauss_encoding_func(
-#         limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma, use_softmax=False, rng=rng
-#     )
-# elif args.spatial_encoding == 'tile-coding':
-#     rng = np.random.RandomState(seed=args.seed)
-#     encoding_func = get_tile_encoding_func(
-#         limit_low=limit_low, limit_high=limit_high, dim=args.dim, n_tiles=args.n_tiles, n_bins=args.n_bins, rng=rng
-#     )
-# elif args.spatial_encoding == 'random-proj':
-#     encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)
-# elif args.spatial_encoding == 'random':
-#     encoding_func = partial(encode_random, dim=args.dim)
-# else:
-#     raise NotImplementedError
-
 encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
 # Create a validation/visualization set to run periodically while training and at the end
@@ -220,16 +175,6 @@ else:
 # else:
 #     cache_file = None
 
-validation_set = PolicyValidationSet(
-    data=data, dim=repr_dim, maze_sps=maze_sps,
-    maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
-    encoding_func=encoding_func, device=device, cache_fname=cache_fname
-)
-
-# Reset seeds here after generating data
-torch.manual_seed(args.seed)
-np.random.seed(args.seed)
-
 
 # input is maze, loc, goal ssps, output is 2D direction to move
 if 'learned' in args.spatial_encoding:
@@ -256,6 +201,16 @@ else:
 
 
 model.to(device)
+
+validation_set = PolicyValidationSet(
+    data=data, dim=repr_dim, maze_sps=maze_sps,
+    maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
+    encoding_func=encoding_func, device=device, cache_fname=cache_fname
+)
+
+# Reset seeds here after generating data
+torch.manual_seed(args.seed)
+np.random.seed(args.seed)
 
 rmses = validation_set.get_rmse(model)
 
