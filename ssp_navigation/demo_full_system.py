@@ -11,7 +11,8 @@ from gridworlds.envs import GridWorldEnv, generate_obs_dict
 from gridworlds.constants import possible_objects
 
 from ssp_navigation.utils.agents import GoalFindingAgent
-import nengo.spa as spa
+# import nengo.spa as spa
+import nengo_spa as spa
 from collections import OrderedDict
 from spatial_semantic_pointers.utils import encode_point, ssp_to_loc, get_heatmap_vectors
 
@@ -143,7 +144,8 @@ for i in range(n_goals):
     else:
         # If set to None, the environment will choose a random free space on init
         object_locations[sp_name] = None
-    vocab[sp_name] = spa.SemanticPointer(ssp_dim)
+    # vocab[sp_name] = spa.SemanticPointer(ssp_dim)
+    vocab[sp_name] = spa.SemanticPointer(data=np.random.uniform(-1, 1, size=ssp_dim)).normalized()
 
 env = GridWorldEnv(
     map_array=map_array,
@@ -174,13 +176,15 @@ for i in range(n_goals):
     y = ((y_env - 0) / coarse_size) * limit_range + ys[0]
 
     item_memory += vocab[sp_name] * encode_point(x, y, x_axis_sp, y_axis_sp)
-item_memory.normalize()
+# item_memory.normalize()
+item_memory = item_memory.normalized()
 
 # Component functions of the full system
 
 cleanup_network = FeedForward(input_size=ssp_dim, hidden_size=512, output_size=ssp_dim)
-cleanup_network.load_state_dict(torch.load(args.cleanup_network), strict=True)
-cleanup_network.eval()
+if not args.use_cleanup_gt:
+    cleanup_network.load_state_dict(torch.load(args.cleanup_network), strict=True)
+    cleanup_network.eval()
 
 # Input is x and y velocity plus the distance sensor measurements, plus map ID
 localization_network = LocalizationModel(
@@ -188,23 +192,26 @@ localization_network = LocalizationModel(
     unroll_length=1, #rollout_length,
     sp_dim=ssp_dim
 )
-localization_network.load_state_dict(torch.load(args.localization_network), strict=True)
-localization_network.eval()
+if not args.use_localization_gt:
+    localization_network.load_state_dict(torch.load(args.localization_network), strict=True)
+    localization_network.eval()
 
 if args.n_hidden_layers_policy == 1:
     policy_network = FeedForward(input_size=id_size + ssp_dim * 2, output_size=2)
 else:
     policy_network = MLP(input_size=id_size + ssp_dim * 2, output_size=2, n_layers=args.n_hidden_layers_policy)
-policy_network.load_state_dict(torch.load(args.policy_network), strict=True)
-policy_network.eval()
+if not args.use_policy_gt:
+    policy_network.load_state_dict(torch.load(args.policy_network), strict=True)
+    policy_network.eval()
 
 snapshot_localization_network = FeedForward(
     input_size=n_sensors + n_maps,
     hidden_size=512,
     output_size=ssp_dim,
 )
-snapshot_localization_network.load_state_dict(torch.load(args.snapshot_localization_network), strict=True)
-snapshot_localization_network.eval()
+if not args.use_snapshot_localization_gt:
+    snapshot_localization_network.load_state_dict(torch.load(args.snapshot_localization_network), strict=True)
+    snapshot_localization_network.eval()
 
 
 # # Ground truth versions of the above functions
