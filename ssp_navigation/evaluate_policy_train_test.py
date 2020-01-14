@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
-                        'ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
+                        'ssp', 'hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                         'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
@@ -30,6 +30,7 @@ parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma fo
 parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
+parser.add_argument('--ssp-scaling', type=float, default=1.0)
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='random-sp',
                     help='ssp: region corresponding to maze layout.'
