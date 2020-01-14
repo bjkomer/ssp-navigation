@@ -98,6 +98,8 @@ if args.best_epoch:
     print(df)
 
 
+# df = df[df['Dimensionality'] == 256]
+# df = df[df['Number of Mazes'] == 20]
 # df = df[df['Dimensionality'] == 512]
 # df = df[df['Number of Mazes'] == 5]
 # df = df[df['Number of Mazes'] == 64]
@@ -238,6 +240,21 @@ elif 'pcgauss_sigma_exps' in args.folder:
     plt.figure()
     # sns.barplot(data=df, x='Sigma', y='Angular RMSE')
     sns.barplot(data=df, x='Dimensionality', y='Angular RMSE')
+else:
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Dimensionality')
+
+
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Number of Mazes')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Dimensionality')
 
 try:
     print("Training Angular RMSE:", df['Train Angular RMSE'].mean())
