@@ -36,7 +36,7 @@ parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'rand
                     help='ssp: region corresponding to maze layout.'
                          'one-hot: each maze given a one-hot vector.'
                          'random-sp: each maze given a unique random SP as an ID')
-parser.add_argument('--maze-id-dim', default=256, help='Dimensionality for the Maze ID')
+parser.add_argument('--maze-id-dim', type=int, default=256, help='Dimensionality for the Maze ID')
 parser.add_argument('--seed', type=int, default=13, help='Seed for training and generating axis SSPs')
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the SSPs')
 parser.add_argument('--hidden-size', type=int, default=512, help='Size of the hidden layer in the model')
