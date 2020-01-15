@@ -40,6 +40,8 @@ parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
 parser.add_argument('--ssp-scaling', type=float, default=1.0)
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
+parser.add_argument('--encoding-limit', type=float, default=0.0,
+                    help='if set, use this upper limit to define the space that the encoding is optimized over')
 parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
                     help='ssp: region corresponding to maze layout.'
                          'one-hot: each maze given a one-hot vector.'
@@ -125,7 +127,10 @@ else:
     raise NotImplementedError
 
 limit_low = 0
-limit_high = data['coarse_mazes'].shape[2]
+if args.encoding_limit != 0.0:
+    limit_high = args.encoding_limit
+else:
+    limit_high = data['coarse_mazes'].shape[2]
 
 encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
