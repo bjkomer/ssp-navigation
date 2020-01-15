@@ -17,6 +17,13 @@ parser.add_argument('--goal-y', type=float, default=0, help='y-coord of the goal
 
 args = parser.parse_args()
 
+dataset = np.load(args.dataset)
+
+limit_low = 0
+limit_high = dataset['coarse_mazes'].shape[2]
+
+map_array = dataset['coarse_mazes'][args.maze_index, :, :]
+
 
 data = np.load(args.fname)
 
@@ -26,12 +33,16 @@ locations = data['locations']
 n_trajectories = locations.shape[0]
 n_steps = locations.shape[1]
 
-print(np.max(locations))
-print(np.min(locations))
+# print(np.max(locations))
+# print(np.min(locations))
+
+plt.imshow(1 - map_array.T, cmap='gray')
 
 for i in range(n_trajectories):
     indices = np.where((locations[i, :, 0] != 0) | (locations[i, :, 1] != 0))
     plt.plot(locations[i, indices, 0][0], locations[i, indices, 1][0])
     # plt.plot(locations[i, :, 0], locations[i, :, 1])
+
+
 
 plt.show()
