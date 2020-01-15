@@ -30,6 +30,8 @@ print(np.max(locations))
 print(np.min(locations))
 
 for i in range(n_trajectories):
-    plt.plot(locations[i, :, 0], locations[i, :, 1])
+    indices = np.where((locations[i, :, 0] != 0) | (locations[i, :, 1] != 0))
+    plt.plot(locations[i, indices, 0][0], locations[i, indices, 1][0])
+    # plt.plot(locations[i, :, 0], locations[i, :, 1])
 
 plt.show()
