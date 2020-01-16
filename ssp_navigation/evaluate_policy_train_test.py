@@ -230,6 +230,7 @@ df['Loss Function'] = args.loss_function
 df['Learning Rate'] = args.lr
 df['Momentum'] = args.momentum
 df['Optimizer'] = args.optimizer
+df['SSP Scaling'] = args.ssp_scaling
 
 df.to_csv(args.out_file)
 

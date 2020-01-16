@@ -251,6 +251,7 @@ elif '.csv' in args.out_file:
     df['Sigma'] = args.pc_gauss_sigma
     df['Hex Freq Coef'] = args.hex_freq_coef
     df['Optimizer'] = args.optimizer
+    df['SSP Scaling'] = args.ssp_scaling
 
     df.to_csv(args.out_file)
 

@@ -240,6 +240,17 @@ elif 'pcgauss_sigma_exps' in args.folder:
     plt.figure()
     # sns.barplot(data=df, x='Sigma', y='Angular RMSE')
     sns.barplot(data=df, x='Dimensionality', y='Angular RMSE')
+elif 'ssp_scaling_exps' in args.folder:
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='SSP Scaling')
+
+
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='SSP Scaling')
 else:
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
