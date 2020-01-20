@@ -290,4 +290,4 @@ validation_set.run_eval(
 )
 
 
-torch.save(model.state_dict(), os.path.join(save_dir, '{}_snapshot_localization_model.pt'.format(args.encoding)))
+torch.save(model.state_dict(), os.path.join(save_dir, '{}_snapshot_localization_model.pt'.format(args.spatial_encoding)))
