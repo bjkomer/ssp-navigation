@@ -1460,7 +1460,7 @@ def snapshot_localization_train_test_loaders(
 
 
 def snapshot_localization_encoding_train_test_loaders(
-        data, encoding_func, encoding_dim, n_train_samples=1000, n_test_samples=1000, batch_size=10, n_mazes_to_use=0
+        data, encoding_func, encoding_dim, maze_sps, n_train_samples=1000, n_test_samples=1000, batch_size=10, n_mazes_to_use=0
 ):
 
     # # Option to use SSPs or the 2D location directly
@@ -1497,7 +1497,7 @@ def snapshot_localization_encoding_train_test_loaders(
         # for the 2D encoding method
         pos_outputs = np.zeros((n_samples, 2))
 
-        maze_ids = np.zeros((n_samples, n_mazes))
+        maze_ids = np.zeros((n_samples, maze_sps.shape[1]))
 
         for i in range(n_samples):
             # choose random maze and position in maze
@@ -1518,8 +1518,11 @@ def snapshot_localization_encoding_train_test_loaders(
 
             encoding_outputs[i, :] = heatmap_vectors[xi, yi, :]
 
-            # one-hot maze ID
-            maze_ids[i, maze_ind] = 1
+            # # one-hot maze ID
+            # maze_ids[i, maze_ind] = 1
+
+            # supports both one-hot and random-sp
+            maze_ids[i, :] = maze_sps[maze_ind, :]
 
             # for the 2D encoding method
             pos_outputs[i, :] = np.array([xs[xi], ys[yi]])

@@ -9,14 +9,14 @@ import argparse
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from datetime import datetime
 from tensorboardX import SummaryWriter
 import json
-from spatial_semantic_pointers.utils import get_heatmap_vectors, ssp_to_loc, ssp_to_loc_v
-from ssp_navigation.utils.training import SnapshotValidationSet, snapshot_localization_train_test_loaders
+# from spatial_semantic_pointers.utils import get_heatmap_vectors, ssp_to_loc, ssp_to_loc_v
+from ssp_navigation.utils.training import SnapshotValidationSet, snapshot_localization_encoding_train_test_loaders
 from ssp_navigation.utils.models import FeedForward, MLP
-from ssp_navigation.utils.encodings import get_encoding_function
+from ssp_navigation.utils.encodings import get_encoding_function, get_encoding_heatmap_vectors
+import nengo.spa as spa
 
 
 parser = argparse.ArgumentParser('Run 2D supervised localization experiment with snapshots using pytorch')
@@ -30,7 +30,7 @@ parser.add_argument('--load-saved-model', type=str, default='', help='Saved mode
 parser.add_argument('--loss-function', type=str, default='cosine', choices=['cosine', 'mse'])
 parser.add_argument('--n-mazes', type=int, default=0, help='number of mazes to use. Set to 0 to use all in the dataset')
 parser.add_argument('--batch-size', type=int, default=32)
-parser.add_argument('--learning-rate', type=float, default=1e-5, help='Step size multiplier in the RMSProp algorithm')
+parser.add_argument('--lr', type=float, default=1e-3, help='Step size multiplier in the RMSProp algorithm')
 parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parameter of the RMSProp algorithm')
 
 
@@ -51,6 +51,12 @@ parser.add_argument('--encoding-limit', type=float, default=0.0,
                     help='if set, use this upper limit to define the space that the encoding is optimized over')
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of encoding')
 
+parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='random-sp',
+                    help='ssp: region corresponding to maze layout.'
+                         'one-hot: each maze given a one-hot vector.'
+                         'random-sp: each maze given a unique random SP as an ID')
+parser.add_argument('--maze-id-dim', type=int, default=256, help='Dimensionality for the Maze ID')
+
 parser.add_argument('--optimizer', type=str, default='rmsprop', choices=['rmsprop', 'adam', 'sgd'])
 
 parser.add_argument('--hidden-size', type=int, default=512)
@@ -68,8 +74,8 @@ args = parser.parse_args()
 
 dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
 
-variant_folder = '{}_{}layer_{}units'.format(
-    args.encoding, args.n_hidden_layers, args.hidden_size,
+variant_folder = '{}_{}dim_{}layer_{}units'.format(
+    args.spatial_encoding, args.dim, args.n_hidden_layers, args.hidden_size,
 )
 
 if args.variant_subfolder != '':
@@ -105,6 +111,25 @@ writer = SummaryWriter(log_dir=save_dir)
 data = np.load(dataset_file)
 
 
+n_mazes = data['fine_mazes'].shape[0]
+
+if args.maze_id_type == 'ssp':
+    id_size = args.maze_id_dim
+    raise NotImplementedError  # this method is currently not supported by this script
+elif args.maze_id_type == 'one-hot':
+    id_size = n_mazes
+    # overwrite data
+    maze_sps = np.eye(n_mazes)
+elif args.maze_id_type == 'random-sp':
+    id_size = args.maze_id_dim
+    maze_sps = np.zeros((n_mazes, args.maze_id_dim))
+    # overwrite data
+    for mi in range(n_mazes):
+        maze_sps[mi, :] = spa.SemanticPointer(args.maze_id_dim).v
+else:
+    raise NotImplementedError
+
+
 limit_low = 0
 if args.encoding_limit != 0.0:
     limit_high = args.encoding_limit
@@ -114,12 +139,11 @@ else:
 encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
 
-
 # x_axis_vec = data['x_axis_sp']
 # y_axis_vec = data['y_axis_sp']
 #
-# xs = data['xs']
-# ys = data['ys']
+xs = data['xs']
+ys = data['ys']
 
 # dist sensors is (n_mazes, res, res, n_sensors)
 n_sensors = data['dist_sensors'].shape[3]
@@ -128,7 +152,8 @@ n_mazes = data['coarse_mazes'].shape[0]
 
 # Used for visualization of test set performance using pos = ssp_to_loc(sp, heatmap_vectors, xs, ys)
 # TODO: use the more general heatmap vector generation
-heatmap_vectors = get_heatmap_vectors(xs, ys, x_axis_vec, y_axis_vec)
+# heatmap_vectors = get_heatmap_vectors(xs, ys, x_axis_vec, y_axis_vec)
+heatmap_vectors = get_encoding_heatmap_vectors(xs, ys, args.dim, encoding_func)
 
 n_samples = args.n_samples
 batch_size = args.batch_size
@@ -152,13 +177,13 @@ n_epochs = args.n_epochs
 # alternatively, should it learn the maze ID from what it sees? that could be an additional output rather than input
 # may need more rich sensory environment, such as colour, or information over time.
 # Could produce interesting backtracking behaviour if it learns the environment context as it moves
-n_maze_dim = 0
+n_maze_dim = args.maze_id_dim #0
 
 # Input is the distance sensor measurements
 model = MLP(
     input_size=n_sensors + n_maze_dim,
     hidden_size=args.hidden_size,
-    output_size=2,
+    output_size=args.dim,
     n_layers=args.n_hidden_layers
 )
 
@@ -179,12 +204,14 @@ elif args.optimizer == 'adam':
 
 
 # TODO: update these to be more general
-trainloader, testloader = snapshot_localization_train_test_loaders(
+trainloader, testloader = snapshot_localization_encoding_train_test_loaders(
     data,
+    encoding_func=encoding_func,
+    encoding_dim=args.dim,
+    maze_sps=maze_sps,
     n_train_samples=n_samples,
     n_test_samples=n_samples,
     batch_size=batch_size,
-    encoding=args.encoding,
     n_mazes_to_use=args.n_mazes,
 )
 
@@ -193,7 +220,7 @@ validation_set = SnapshotValidationSet(
     heatmap_vectors=heatmap_vectors,
     xs=xs,
     ys=ys,
-    spatial_encoding=args.encoding,
+    spatial_encoding='ssp',
 )
 
 params = vars(args)
