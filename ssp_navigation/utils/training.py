@@ -7,7 +7,7 @@ import torch.utils.data as data
 from spatial_semantic_pointers.utils import encode_point, encode_random, ssp_to_loc, ssp_to_loc_v, get_heatmap_vectors
 from spatial_semantic_pointers.plots import plot_predictions, plot_predictions_v
 from ssp_navigation.utils.datasets import MazeDataset, SingleMazeDataset
-from ssp_navigation.utils.encodings import encode_one_hot, encode_projection, encode_trig, encode_random_trig, encode_hex_trig
+from ssp_navigation.utils.encodings import get_encoding_heatmap_vectors
 from ssp_navigation.utils.path import plot_path_predictions, plot_path_predictions_image
 import matplotlib.pyplot as plt
 import os
@@ -1446,6 +1446,89 @@ def snapshot_localization_train_test_loaders(
                 maze_ids=maze_ids,
                 ssp_outputs=pos_outputs,
             )
+
+        if test_set == 0:
+            trainloader = torch.utils.data.DataLoader(
+                dataset, batch_size=batch_size, shuffle=True, num_workers=0,
+            )
+        elif test_set == 1:
+            testloader = torch.utils.data.DataLoader(
+                dataset, batch_size=n_samples, shuffle=True, num_workers=0,
+            )
+
+    return trainloader, testloader
+
+
+def snapshot_localization_encoding_train_test_loaders(
+        data, encoding_func, encoding_dim, n_train_samples=1000, n_test_samples=1000, batch_size=10, n_mazes_to_use=0
+):
+
+    # # Option to use SSPs or the 2D location directly
+    # assert encoding in ['ssp', '2d']
+    #
+    xs = data['xs']
+    ys = data['ys']
+    # x_axis_vec = data['x_axis_sp']
+    # y_axis_vec = data['y_axis_sp']
+    # heatmap_vectors = get_heatmap_vectors(xs, ys, x_axis_vec, y_axis_vec)
+    heatmap_vectors = get_encoding_heatmap_vectors(xs, ys, encoding_dim, encoding_func)
+
+    # positions = data['positions']
+
+    # shape is (n_mazes, res, res, n_sensors)
+    dist_sensors = data['dist_sensors']
+
+    fine_mazes = data['fine_mazes']
+
+    n_sensors = dist_sensors.shape[3]
+
+    # ssps = data['ssps']
+
+    n_mazes = data['coarse_mazes'].shape[0]
+    # dim = x_axis_vec.shape[0]
+
+    for test_set, n_samples in enumerate([n_train_samples, n_test_samples]):
+
+        sensor_inputs = np.zeros((n_samples, n_sensors))
+
+        # these include outputs for every time-step
+        encoding_outputs = np.zeros((n_samples, encoding_dim))
+
+        # for the 2D encoding method
+        pos_outputs = np.zeros((n_samples, 2))
+
+        maze_ids = np.zeros((n_samples, n_mazes))
+
+        for i in range(n_samples):
+            # choose random maze and position in maze
+            if n_mazes_to_use <= 0:
+                # use all available mazes
+                maze_ind = np.random.randint(low=0, high=n_mazes)
+            else:
+                # use only some mazes
+                maze_ind = np.random.randint(low=0, high=n_mazes_to_use)
+            xi = np.random.randint(low=0, high=len(xs))
+            yi = np.random.randint(low=0, high=len(ys))
+            # Keep choosing position until it is not inside a wall
+            while fine_mazes[maze_ind, xi, yi] == 1:
+                xi = np.random.randint(low=0, high=len(xs))
+                yi = np.random.randint(low=0, high=len(ys))
+
+            sensor_inputs[i, :] = dist_sensors[maze_ind, xi, yi, :]
+
+            encoding_outputs[i, :] = heatmap_vectors[xi, yi, :]
+
+            # one-hot maze ID
+            maze_ids[i, maze_ind] = 1
+
+            # for the 2D encoding method
+            pos_outputs[i, :] = np.array([xs[xi], ys[yi]])
+
+        dataset = LocalizationSnapshotDataset(
+            sensor_inputs=sensor_inputs,
+            maze_ids=maze_ids,
+            ssp_outputs=encoding_outputs,
+        )
 
         if test_set == 0:
             trainloader = torch.utils.data.DataLoader(

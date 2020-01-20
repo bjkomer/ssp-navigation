@@ -280,6 +280,14 @@ def encoding_func_from_model(path, dim=512):
     return encoding_func
 
 
+def get_encoding_heatmap_vectors(xs, ys, dim, encoding_func):
+    heatmap_vectors = np.zeros((len(xs), len(ys), dim))
+    for i, x in enumerate(xs):
+        for j, y in enumerate(ys):
+            heatmap_vectors[i, j, :] = encoding_func(x=x, y=y)
+    return heatmap_vectors
+
+
 def get_encoding_function(args, limit_low=0, limit_high=13):
     if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
         repr_dim = 2
