@@ -27,7 +27,8 @@ parser.add_argument('--n-samples', type=int, default=10000)
 # parser.add_argument('--encoding', type=str, default='ssp', choices=['ssp', '2d', 'pc'])
 parser.add_argument('--eval-period', type=int, default=50)
 parser.add_argument('--load-saved-model', type=str, default='', help='Saved model to load from')
-parser.add_argument('--loss-function', type=str, default='cosine', choices=['cosine', 'mse'])
+parser.add_argument('--loss-function', type=str, default='cosine',
+                    choices=['cosine', 'mse', 'combined', 'alternating', 'scaled'])
 parser.add_argument('--n-mazes', type=int, default=0, help='number of mazes to use. Set to 0 to use all in the dataset')
 parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--lr', type=float, default=1e-3, help='Step size multiplier in the RMSProp algorithm')
@@ -57,7 +58,7 @@ parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'rand
                          'random-sp: each maze given a unique random SP as an ID')
 parser.add_argument('--maze-id-dim', type=int, default=256, help='Dimensionality for the Maze ID')
 
-parser.add_argument('--optimizer', type=str, default='rmsprop', choices=['rmsprop', 'adam', 'sgd'])
+parser.add_argument('--optimizer', type=str, default='adam', choices=['rmsprop', 'adam', 'sgd'])
 
 parser.add_argument('--hidden-size', type=int, default=512)
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
@@ -86,14 +87,14 @@ logdir = os.path.join(args.dataset_dir, 'snapshot_network', variant_folder)
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 
-use_cosine_loss = False
-if args.loss_function == 'cosine':
-    use_cosine_loss = True
-
-if use_cosine_loss:
-    print("Using Cosine Loss")
-else:
-    print("Using MSE Loss")
+# use_cosine_loss = False
+# if args.loss_function == 'cosine':
+#     use_cosine_loss = True
+#
+# if use_cosine_loss:
+#     print("Using Cosine Loss")
+# else:
+#     print("Using MSE Loss")
 
 
 if args.gpu == -1:
@@ -177,7 +178,7 @@ n_epochs = args.n_epochs
 # alternatively, should it learn the maze ID from what it sees? that could be an additional output rather than input
 # may need more rich sensory environment, such as colour, or information over time.
 # Could produce interesting backtracking behaviour if it learns the environment context as it moves
-n_maze_dim = args.maze_id_dim #0
+n_maze_dim = id_size  # args.maze_id_dim #0
 
 # Input is the distance sensor measurements
 model = MLP(
@@ -227,6 +228,10 @@ params = vars(args)
 with open(os.path.join(save_dir, "params.json"), "w") as f:
     json.dump(params, f)
 
+# Keep track of running average losses, to adaptively scale the weight between them
+running_avg_cosine_loss = 1.
+running_avg_mse_loss = 1.
+
 print("Training")
 for epoch in range(n_epochs):
     print("Epoch {} of {}".format(epoch + 1, n_epochs))
@@ -241,8 +246,10 @@ for epoch in range(n_epochs):
             epoch=epoch,
         )
 
-    avg_mse_loss = 0
     avg_cosine_loss = 0
+    avg_mse_loss = 0
+    avg_combined_loss = 0
+    avg_scaled_loss = 0
     n_batches = 0
     for i, data in enumerate(trainloader):
         # sensor_inputs, maze_ids, ssp_outputs = data
@@ -260,10 +267,26 @@ for epoch in range(n_epochs):
         cosine_loss = cosine_criterion(ssp_pred, ssp_outputs, torch.ones(ssp_pred.shape[0]))
         mse_loss = mse_criterion(ssp_pred, ssp_outputs)
 
-        if use_cosine_loss:
+        loss = cosine_loss + mse_loss
+
+        # adaptive weighted combination of the two loss functions
+        c_f = (running_avg_mse_loss / (running_avg_mse_loss + running_avg_cosine_loss))
+        m_f = (running_avg_cosine_loss / (running_avg_mse_loss + running_avg_cosine_loss))
+        scaled_loss = cosine_loss * c_f + mse_loss * m_f
+
+        if args.loss_function == 'cosine':
             cosine_loss.backward()
-        else:
+        elif args.loss_function == 'mse':
             mse_loss.backward()
+        elif args.loss_function == 'combined':
+            loss.backward()
+        elif args.loss_function == 'alternating':
+            if epoch % 2 == 0:
+                cosine_loss.backward()
+            else:
+                mse_loss.backward()
+        elif args.loss_function == 'scaled':
+            scaled_loss.backward()
 
         # Gradient Clipping
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip_thresh)
@@ -276,10 +299,20 @@ for epoch in range(n_epochs):
 
     avg_mse_loss /= n_batches
     avg_cosine_loss /= n_batches
+    avg_combined_loss /= n_batches
+    avg_scaled_loss /= n_batches
     print("mse loss:", avg_mse_loss)
     print("cosine loss:", avg_cosine_loss)
-    writer.add_scalar('avg_mse_loss', avg_mse_loss, epoch + 1)
+    print("combined loss:", avg_combined_loss)
+    print("scaled loss:", avg_scaled_loss)
     writer.add_scalar('avg_cosine_loss', avg_cosine_loss, epoch + 1)
+    writer.add_scalar('avg_mse_loss', avg_mse_loss, epoch + 1)
+    writer.add_scalar('avg_combined_loss', avg_combined_loss, epoch + 1)
+    writer.add_scalar('avg_scaled_loss', avg_scaled_loss, epoch + 1)
+
+
+    running_avg_cosine_loss = 0.9 * running_avg_cosine_loss + 0.1 * avg_cosine_loss
+    running_avg_mse_loss = 0.9 * running_avg_mse_loss + 0.1 * avg_mse_loss
 
 
 print("Testing")
