@@ -295,6 +295,8 @@ for epoch in range(n_epochs):
 
         avg_mse_loss += mse_loss.data.item()
         avg_cosine_loss += cosine_loss.data.item()
+        avg_combined_loss += (cosine_loss.data.item() + mse_loss.data.item())
+        avg_scaled_loss += scaled_loss.data.item()
         n_batches += 1
 
     avg_mse_loss /= n_batches
