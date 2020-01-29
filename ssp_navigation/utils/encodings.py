@@ -1,5 +1,6 @@
 import numpy as np
-from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make_good_unitary, encode_random
+from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make_good_unitary, encode_random, \
+    make_optimal_periodic_axis
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
 import torch
@@ -211,7 +212,7 @@ def get_ssp_encode_func(dim, seed, scaling=1.0):
     return encode_ssp
 
 
-def get_hex_ssp_encode_func(dim, seed, scaling=1.0):
+def get_hex_ssp_encode_func(dim, seed, scaling=1.0, optimal_phi=False):
     """
     Generates an encoding function for hex projection SSPs that only takes (x,y) as input
     :param dim: dimension of the SSP
@@ -220,9 +221,14 @@ def get_hex_ssp_encode_func(dim, seed, scaling=1.0):
     :return:
     """
     rng = np.random.RandomState(seed=seed)
-    x_axis_sp = make_good_unitary(dim=dim, rng=rng)
-    y_axis_sp = make_good_unitary(dim=dim, rng=rng)
-    z_axis_sp = make_good_unitary(dim=dim, rng=rng)
+    if optimal_phi:
+        x_axis_sp = make_optimal_periodic_axis(dim=dim, rng=rng)
+        y_axis_sp = make_optimal_periodic_axis(dim=dim, rng=rng)
+        z_axis_sp = make_optimal_periodic_axis(dim=dim, rng=rng)
+    else:
+        x_axis_sp = make_good_unitary(dim=dim, rng=rng)
+        y_axis_sp = make_good_unitary(dim=dim, rng=rng)
+        z_axis_sp = make_good_unitary(dim=dim, rng=rng)
 
     def encode_ssp(x, y):
         return encode_point_hex(x * scaling, y * scaling, x_axis_sp, y_axis_sp, z_axis_sp).v
@@ -305,7 +311,10 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
         encoding_func = get_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling)
     elif args.spatial_encoding == 'hex-ssp':
         repr_dim = args.dim
-        encoding_func = get_hex_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling)
+        encoding_func = get_hex_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling, optimal_phi=False)
+    elif args.spatial_encoding == 'periodic-hex-ssp':
+        repr_dim = args.dim
+        encoding_func = get_hex_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling, optimal_phi=True)
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
