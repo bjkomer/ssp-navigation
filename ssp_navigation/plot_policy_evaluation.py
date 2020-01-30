@@ -33,7 +33,19 @@ else:
             continue
         df_temp = pd.read_csv(os.path.join(args.folder, file))
 
-        df = df.append(df_temp)
+        # if 'SSP Scaling' not in df_temp:
+        #     df_temp['SSP Scaling'] = 0.5
+
+        # only want to look at the correct sigma results in this case
+        if 'bounds_exps' in args.folder:
+            # if np.any(df_temp['Encoding'] == 'pc-gauss') and np.any(df_temp['Sigma'] != 0.375):
+            if ('pc-gauss' in file) and ('scaling' in file):
+                continue
+            else:
+                df = df.append(df_temp)
+        else:
+
+            df = df.append(df_temp)
 
     df.to_csv(combined_fname)
 
@@ -98,6 +110,7 @@ if args.best_epoch:
     print(df)
 
 
+# df = df[df['Number of Mazes'] == 10]
 # df = df[df['Dimensionality'] == 256]
 # df = df[df['Number of Mazes'] == 20]
 # df = df[df['Dimensionality'] == 512]
@@ -258,6 +271,9 @@ else:
     sns.barplot(data=df, x='Encoding', y='Angular RMSE')
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Dimensionality')
+
+    # plt.figure()
+    # sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='SSP Scaling')
 
 
     plt.figure()
