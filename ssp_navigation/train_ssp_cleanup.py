@@ -12,12 +12,14 @@ from datetime import datetime
 import os.path as osp
 import os
 import nengo
-from spatial_semantic_pointers.utils import encode_point, make_good_unitary
+# from spatial_semantic_pointers.utils import encode_point, make_good_unitary
+from ssp_navigation.utils.encodings import get_encoding_function
 
 
 def generate_cleanup_dataset(
-        x_axis_sp,
-        y_axis_sp,
+        # x_axis_sp,
+        # y_axis_sp,
+        encoding_func,
         n_samples,
         dim,
         n_items,
@@ -35,8 +37,9 @@ def generate_cleanup_dataset(
     :param n_items: number of items in each memory
     :param item_set: optional list of possible item vectors. If not supplied they will be generated randomly
     :param allow_duplicate_items: if an item set is given, this will allow the same item to be at multiple places
-    :param x_axis_sp: optional x_axis semantic pointer. If not supplied, will be generated as a unitary vector
-    :param y_axis_sp: optional y_axis semantic pointer. If not supplied, will be generated as a unitary vector
+    # :param x_axis_sp: optional x_axis semantic pointer. If not supplied, will be generated as a unitary vector
+    # :param y_axis_sp: optional y_axis semantic pointer. If not supplied, will be generated as a unitary vector
+    :param encoding_func: function for generating the encoding
     :param limits: limits of the 2D space (x_low, x_high, y_low, y_high)
     :param seed: random seed for the memories and axis vectors if not supplied
     :param normalize_memory: if true, call normalize() on the memory semantic pointer after construction
@@ -74,7 +77,8 @@ def generate_cleanup_dataset(
             x = np.random.uniform(low=limits[0], high=limits[1])
             y = np.random.uniform(low=limits[2], high=limits[3])
 
-            pos = encode_point(x, y, x_axis_sp=x_axis_sp, y_axis_sp=y_axis_sp)
+            # pos = encode_point(x, y, x_axis_sp=x_axis_sp, y_axis_sp=y_axis_sp)
+            pos = nengo.spa.SemanticPointer(data=encoding_func(x, y))
 
             if items_used is None:
                 item = nengo.spa.SemanticPointer(dim)
@@ -102,6 +106,21 @@ def generate_cleanup_dataset(
 
 def main():
     parser = argparse.ArgumentParser('Train a network to clean up a noisy spatial semantic pointer')
+
+    parser.add_argument('--spatial-encoding', type=str, default='ssp',
+                        choices=[
+                            'ssp', 'hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
+                            'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
+                            'pc-gauss', 'pc-dog', 'tile-coding'
+                        ],
+                        help='coordinate encoding')
+    parser.add_argument('--hex-freq-coef', type=float, default=2.5,
+                        help='constant to scale frequencies by for hex-trig')
+    parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
+    parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
+    parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
+    parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
+    parser.add_argument('--ssp-scaling', type=float, default=1.0)
 
     parser.add_argument('--dataset', type=str, default='')
     parser.add_argument('--train-fraction', type=float, default=.5, help='proportion of the dataset to use for training')
@@ -139,8 +158,13 @@ def main():
         os.makedirs('data')
 
     rng = np.random.RandomState(seed=args.seed)
-    x_axis_sp = make_good_unitary(args.dim, rng=rng)
-    y_axis_sp = make_good_unitary(args.dim, rng=rng)
+    # x_axis_sp = make_good_unitary(args.dim, rng=rng)
+    # y_axis_sp = make_good_unitary(args.dim, rng=rng)
+
+    limit_low = args.limits[0]
+    limit_high = args.limits[1]
+
+    encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
     if os.path.exists(dataset_name):
         print("Loading dataset")
@@ -151,8 +175,9 @@ def main():
         print("Generating SSP cleanup dataset")
         # TODO: save the dataset the first time it is created, so it can be loaded the next time
         clean_ssps, noisy_ssps, coords = generate_cleanup_dataset(
-            x_axis_sp=x_axis_sp,
-            y_axis_sp=y_axis_sp,
+            # x_axis_sp=x_axis_sp,
+            # y_axis_sp=y_axis_sp,
+            encoding_func=encoding_func,
             n_samples=args.n_samples,
             dim=args.dim,
             n_items=args.n_items,
@@ -165,8 +190,8 @@ def main():
             clean_ssps=clean_ssps,
             noisy_ssps=noisy_ssps,
             coords=coords,
-            x_axis_vec=x_axis_sp.v,
-            y_axis_vec=x_axis_sp.v,
+            # x_axis_vec=x_axis_sp.v,
+            # y_axis_vec=x_axis_sp.v,
         )
 
     n_samples = clean_ssps.shape[0]
@@ -190,7 +215,7 @@ def main():
         dataset_test, batch_size=len(dataset_test), shuffle=False, num_workers=0,
     )
 
-    model = FeedForward(input_size=dataset_train.dim, hidden_size=args.hidden_size, output_size=dataset_train.dim)
+    model = FeedForward(input_size=args.dim, hidden_size=args.hidden_size, output_size=args.dim)
 
     # Open a tensorboard writer if a logging directory is given
     if args.logdir != '':

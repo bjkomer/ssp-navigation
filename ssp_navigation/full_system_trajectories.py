@@ -15,7 +15,7 @@ from ssp_navigation.utils.models import FeedForward, MLP
 from ssp_navigation.utils.training import LocalizationModel
 from ssp_navigation.utils.path import solve_maze
 
-from ssp_navigation.utils.encodings import get_encoding_function
+from ssp_navigation.utils.encodings import get_encoding_function, get_encoding_heatmap_vectors
 
 parser = argparse.ArgumentParser('Run the full system on a maze task and record the trajectories taken')
 
@@ -29,6 +29,7 @@ parser.add_argument('--start-y', type=float, default=0, help='y-coord of the age
 parser.add_argument('--goal-x', type=float, default=1, help='x-coord of the goal location')
 parser.add_argument('--goal-y', type=float, default=1, help='y-coord of the goal location')
 
+parser.add_argument('--n-goals', type=int, default=5, help='number of different goals to get to')
 
 
 parser.add_argument('--cleanup-network', type=str,
@@ -50,7 +51,7 @@ parser.add_argument('--dataset', type=str,
                     help='dataset to get the maze layout from')
 parser.add_argument('--maze-index', type=int, default=0, help='index within the dataset for the maze to use')
 parser.add_argument('--noise', type=float, default=0.25, help='magnitude of gaussian noise to add to the actions')
-parser.add_argument('--use-snapshot-localization', action='store_true', help='localize with distance sensors only')
+# parser.add_argument('--use-snapshot-localization', action='store_true', help='localize with distance sensors only')
 parser.add_argument('--use-dataset-goals', action='store_true', help='use only the goals the policy was trained on')
 parser.add_argument('--ghost', type=str, default='trajectory_loc', choices=['none', 'snapshot_loc', 'trajectory_loc'],
                     help='what information should be displayed by the ghost')
@@ -60,7 +61,9 @@ parser.add_argument('--use-localization-gt', action='store_true')
 parser.add_argument('--use-snapshot-localization-gt', action='store_true')
 
 # network parameters
-parser.add_argument('--hidden-size', type=int, default=256, help='Size of the hidden layer in the model')
+parser.add_argument('--policy-hidden-size', type=int, default=256, help='Size of the hidden layer in the model')
+parser.add_argument('--cleanup-hidden-size', type=int, default=256, help='Size of the hidden layer in the model')
+parser.add_argument('--localization-hidden-size', type=int, default=256, help='Size of the hidden layer in the model')
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
 
 # spatial encoding parameters
@@ -92,9 +95,14 @@ np.random.seed(args.seed)
 n_mazes = 100
 id_size = args.maze_id_dim
 maze_sps = np.zeros((n_mazes, args.maze_id_dim))
-# overwrite data
-for mi in range(n_mazes):
-    maze_sps[mi, :] = nspa.SemanticPointer(args.maze_id_dim).v
+
+if args.use_policy_gt:
+    for mi in range(n_mazes):
+        maze_sps[mi, mi] = 1
+else:
+    # overwrite data
+    for mi in range(n_mazes):
+        maze_sps[mi, :] = nspa.SemanticPointer(args.maze_id_dim).v
 
 # ssp_dim = 512
 n_sensors = 36
@@ -156,6 +164,9 @@ fine_mazes = data['fine_mazes']
 xs = data['xs']
 ys = data['ys']
 res = fine_mazes.shape[1]
+# print(data['xs'])
+# xs = np.linspace(0, 13, res)
+# ys = np.linspace(0, 13, res)
 
 coarse_xs = np.linspace(xs[0], xs[-1], coarse_size)
 coarse_ys = np.linspace(ys[0], ys[-1], coarse_size)
@@ -166,6 +177,10 @@ map_array = coarse_mazes[args.maze_index, :, :]
 # y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
 # heatmap_vectors = get_heatmap_vectors(xs, ys, x_axis_sp, y_axis_sp)
 # coarse_heatmap_vectors = get_heatmap_vectors(coarse_xs, coarse_ys, x_axis_sp, y_axis_sp)
+
+
+if args.use_policy_gt:
+    heatmap_vectors = get_encoding_heatmap_vectors(xs, ys, args.dim, encoding_func)
 
 # fixed random set of locations for the goals
 limit_range = xs[-1] - xs[0]
@@ -183,7 +198,7 @@ goals_scaled = ((goals - xs[0]) / limit_range) * coarse_size
 goals_scaled[args.maze_index, 0, 0] = args.goal_x
 goals_scaled[args.maze_index, 0, 1] = args.goal_y
 
-n_goals = 10  # TODO: make this a parameter
+n_goals = 5#10  # TODO: make this a parameter
 object_locations = OrderedDict()
 vocab = {}
 for i in range(n_goals):
@@ -215,8 +230,8 @@ env = GridWorldEnv(
 )
 
 # # hacking in the desired start and goal states
-# env.start_state[0] = args.start_x
-# env.start_state[1] = args.start_y
+env.start_state[0] = args.start_x
+env.start_state[1] = args.start_y
 # env.goal_state[0] = args.goal_x
 # env.goal_state[1] = args.goal_y
 # # the first goal in the list is the one that will be used
@@ -226,14 +241,31 @@ env = GridWorldEnv(
 # Fill the item memory with the correct SSP for remembering the goal locations
 item_memory = spa.SemanticPointer(data=np.zeros((args.dim,)))
 
+
+# hacking in specific goal locations for plot
+goals = np.array(
+    [
+        [11, 2], #[10.4, 2.4], #[10, 3.5],  #blue
+        [6, 10.4], #[6, 10],  # orange
+        [1, 1.1], #[1.5, 2.5], #[2, 3],  # green
+        [10.7, 9.0], #[10, 9],  # red
+        [1, 11], #[4, 11.3], #[2, 11]  # purple
+    ]
+)
+
 for i in range(n_goals):
     sp_name = possible_objects[i]
+    if i < 5:
+        env.object_locations[sp_name][[0, 1]] = goals[i, :]  # overriding goal locations
     x_env, y_env = env.object_locations[sp_name][[0, 1]]
 
-    # Need to scale to SSP coordinates
-    # Env is 0 to 13, SSP is -5 to 5
-    x = ((x_env - 0) / coarse_size) * limit_range + xs[0]
-    y = ((y_env - 0) / coarse_size) * limit_range + ys[0]
+    # # Need to scale to SSP coordinates
+    # # Env is 0 to 13, SSP is -5 to 5
+    # x = ((x_env - 0) / coarse_size) * limit_range + xs[0]
+    # y = ((y_env - 0) / coarse_size) * limit_range + ys[0]
+    # newer code does not do this scaling, any scaling would be in the 'encoding_func'
+    x = x_env
+    y = y_env
 
     # item_memory += vocab[sp_name] * encode_point(x, y, x_axis_sp, y_axis_sp)
     item_memory += vocab[sp_name] * spa.SemanticPointer(
@@ -244,20 +276,21 @@ item_memory = item_memory.normalized()
 
 # Component functions of the full system
 
-cleanup_network = FeedForward(input_size=args.dim, hidden_size=512, output_size=args.dim)
+cleanup_network = FeedForward(input_size=args.dim, hidden_size=args.cleanup_hidden_size, output_size=args.dim)
 if not args.use_cleanup_gt:
     cleanup_network.load_state_dict(torch.load(args.cleanup_network, map_location=lambda storage, loc: storage), strict=True)
     cleanup_network.eval()
 
-# Input is x and y velocity plus the distance sensor measurements, plus map ID
-localization_network = LocalizationModel(
-    input_size=2 + n_sensors + n_maps,
-    unroll_length=1, #rollout_length,
-    sp_dim=args.dim
-)
-if not args.use_localization_gt:
-    localization_network.load_state_dict(torch.load(args.localization_network, map_location=lambda storage, loc: storage), strict=True)
-    localization_network.eval()
+# NOTE: localization network unused for these experiments, snapshot only
+# # Input is x and y velocity plus the distance sensor measurements, plus map ID
+# localization_network = LocalizationModel(
+#     input_size=2 + n_sensors + n_maps,
+#     unroll_length=1, #rollout_length,
+#     sp_dim=args.dim
+# )
+# if not args.use_localization_gt:
+#     localization_network.load_state_dict(torch.load(args.localization_network, map_location=lambda storage, loc: storage), strict=True)
+#     localization_network.eval()
 
 # if args.n_hidden_layers_policy == 1:
 #     policy_network = FeedForward(input_size=id_size + args.dim * 2, output_size=2)
@@ -265,7 +298,7 @@ if not args.use_localization_gt:
 #     policy_network = MLP(input_size=id_size + args.dim * 2, output_size=2, n_layers=args.n_hidden_layers_policy)
 policy_network = MLP(
     input_size=id_size + repr_dim * 2,
-    hidden_size=args.hidden_size,
+    hidden_size=args.policy_hidden_size,
     output_size=2,
     n_layers=args.n_hidden_layers
 )
@@ -275,7 +308,7 @@ if not args.use_policy_gt:
 
 snapshot_localization_network = FeedForward(
     input_size=n_sensors + n_maps,
-    hidden_size=512,
+    hidden_size=args.localization_hidden_size,
     output_size=args.dim,
 )
 if not args.use_snapshot_localization_gt:
@@ -353,11 +386,11 @@ def policy_gt(map_id, agent_ssp, goal_ssp, env, coarse_planning=True):
 
 agent = GoalFindingAgent(
     cleanup_network=cleanup_network,
-    localization_network=localization_network,
+    localization_network=None,#localization_network,
     policy_network=policy_network,
     snapshot_localization_network=snapshot_localization_network,
 
-    use_snapshot_localization=args.use_snapshot_localization,
+    use_snapshot_localization=True, #args.use_snapshot_localization,
 
     cleanup_gt=cleanup_gt,
     localization_gt=localization_gt,
@@ -366,79 +399,100 @@ agent = GoalFindingAgent(
 )
 
 num_episodes = args.n_trajectories
-time_steps = 10000#100
+time_steps = 1000 #10000#100
 returns = np.zeros((num_episodes,))
 # The x-y location of the agent on each time step of each episode, for drawing the trajectories
-locations = np.zeros((num_episodes, time_steps, 2))
-for e in range(num_episodes):
-    # This will reset to the same start and goal states every time
-    obs = env.reset(goal_distance=params['goal_distance'])
+locations = np.zeros((args.n_goals, num_episodes, time_steps, 2))
+for g in range(args.n_goals):
 
-    # env.goal_object is the string name for the goal
-    # env.goal_state[[0, 1]] is the 2D location for that goal
-    semantic_goal = vocab[env.goal_object]
+    # hacking in specific goal
+    env.goal_object_index = g
+    env.goal_object = env.goal_object_list[env.goal_object_index]
+    x_env, y_env = env.object_locations[env.goal_object][[0, 1]]
+    env.goal_state[0] = x_env
+    env.goal_state[1] = y_env
 
-    distances = torch.Tensor(obs).unsqueeze(0)
-    agent.snapshot_localize(
-        distances,
-        map_id,
-        env,
-        use_localization_gt=args.use_snapshot_localization_gt
-    )
-    action = np.zeros((2,))
-    for s in range(params['episode_length']):
-        # no rendering for these experiments, want them running fast
-        # env.render()
-        # env._render_extras()
+    for e in range(num_episodes):
+        # This will reset to the same start and goal states every time
+        obs = env.reset(goal_distance=params['goal_distance'])
+
+        # env.goal_object is the string name for the goal
+        # env.goal_state[[0, 1]] is the 2D location for that goal
+        semantic_goal = vocab[env.goal_object]
 
         distances = torch.Tensor(obs).unsqueeze(0)
-        velocity = torch.Tensor(action).unsqueeze(0)
-
-        # TODO: need to give the semantic goal and the maze_id to the agent
-        # action = agent.act(obs)
-        action = agent.act(
-            distances=distances,
-            velocity=velocity,  # TODO: use real velocity rather than action, because of hitting walls
-            semantic_goal=semantic_goal,
-            map_id=map_id,
-            item_memory=item_memory,
-
-            env=env,  # only used for some ground truth options
-            use_cleanup_gt=args.use_cleanup_gt,
-            use_localization_gt=args.use_localization_gt,
-            use_policy_gt=args.use_policy_gt,
+        agent.snapshot_localize(
+            distances,
+            map_id,
+            env,
+            use_localization_gt=args.use_snapshot_localization_gt
         )
 
-        # if args.ghost != 'none':
-        #     if args.ghost == 'trajectory_loc':
-        #         # localization ghost
-        #         agent_ssp = agent.localization_network(
-        #             inputs=(torch.cat([velocity, distances, map_id], dim=1),),
-        #             initial_ssp=agent.agent_ssp
-        #         ).squeeze(0)
-        #     elif args.ghost == 'snapshot_loc':
-        #         # snapshot localization ghost
-        #         agent_ssp = agent.snapshot_localization_network(torch.cat([distances, map_id], dim=1))
-        #     agent_loc = ssp_to_loc(agent_ssp.squeeze(0).detach().numpy(), heatmap_vectors, xs, ys)
-        #     # Scale to env coordinates, from (-5,5) to (0,13)
-        #     agent_loc = ((agent_loc - xs[0]) / limit_range) * coarse_size
-        #     env.render_ghost(x=agent_loc[0], y=agent_loc[1])
+        # used for running a little longer than reaching the bounding box of the goal
+        end_step = params['episode_length']
 
-        # Add small amount of noise to the action
-        action += np.random.normal(size=2) * args.noise
+        action = np.zeros((2,))
+        for s in range(params['episode_length']):
+            # no rendering for these experiments, want them running fast
+            # env.render()
+            # env._render_extras()
 
-        # Record the current location of the agent
-        locations[e, s, 0] = env.state[0]
-        locations[e, s, 1] = env.state[1]
+            distances = torch.Tensor(obs).unsqueeze(0)
+            velocity = torch.Tensor(action).unsqueeze(0)
 
-        obs, reward, done, info = env.step(action)
-        # print(obs)
-        returns[e] += reward
-        # if reward != 0:
-        #    print(reward)
-        # time.sleep(dt)
-        if done:
-            break
+            # TODO: need to give the semantic goal and the maze_id to the agent
+            # action = agent.act(obs)
+            action = agent.act(
+                distances=distances,
+                velocity=velocity,  # TODO: use real velocity rather than action, because of hitting walls
+                semantic_goal=semantic_goal,
+                map_id=map_id,
+                item_memory=item_memory,
+
+                env=env,  # only used for some ground truth options
+                use_cleanup_gt=args.use_cleanup_gt,
+                use_localization_gt=args.use_localization_gt,
+                use_policy_gt=args.use_policy_gt,
+            )
+
+            # if args.ghost != 'none':
+            #     if args.ghost == 'trajectory_loc':
+            #         # localization ghost
+            #         agent_ssp = agent.localization_network(
+            #             inputs=(torch.cat([velocity, distances, map_id], dim=1),),
+            #             initial_ssp=agent.agent_ssp
+            #         ).squeeze(0)
+            #     elif args.ghost == 'snapshot_loc':
+            #         # snapshot localization ghost
+            #         agent_ssp = agent.snapshot_localization_network(torch.cat([distances, map_id], dim=1))
+            #     agent_loc = ssp_to_loc(agent_ssp.squeeze(0).detach().numpy(), heatmap_vectors, xs, ys)
+            #     # Scale to env coordinates, from (-5,5) to (0,13)
+            #     agent_loc = ((agent_loc - xs[0]) / limit_range) * coarse_size
+            #     env.render_ghost(x=agent_loc[0], y=agent_loc[1])
+
+            # Add small amount of noise to the action
+            action += np.random.normal(size=2) * args.noise
+
+            # Record the current location of the agent
+            locations[g, e, s, 0] = env.state[0]
+            locations[g, e, s, 1] = env.state[1]
+
+            obs, reward, done, info = env.step(action)
+            # print(obs)
+            returns[e] += reward
+            # if reward != 0:
+            #    print(reward)
+            # time.sleep(dt)
+            if done:
+                # break
+                # run a few more steps to converge on the center of the object
+                if end_step == params['episode_length']:
+                    end_step = s + 10
+
+            # break X steps after the goal bounding box has been touched
+            if s >= end_step:
+                break
+
 
 # print(returns)
 

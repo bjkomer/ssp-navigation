@@ -205,7 +205,5 @@ validation_set.run_eval(
     epoch=n_epochs,
 )
 
-if args.encoding == 'ssp':
-    torch.save(model.state_dict(), os.path.join(save_dir, 'ssp_snapshot_localization_model.pt'))
-elif args.encoding == '2d':
-    torch.save(model.state_dict(), os.path.join(save_dir, '2d_snapshot_localization_model.pt'))
+
+torch.save(model.state_dict(), os.path.join(save_dir, '{}_snapshot_localization_model.pt'.format(args.encoding)))
