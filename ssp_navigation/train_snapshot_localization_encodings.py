@@ -246,6 +246,11 @@ for epoch in range(n_epochs):
             epoch=epoch,
         )
 
+        torch.save(
+            model.state_dict(),
+            os.path.join(save_dir, '{}_snapshot_localization_model_epoch{}.pt'.format(args.spatial_encoding, epoch))
+        )
+
     avg_cosine_loss = 0
     avg_mse_loss = 0
     avg_combined_loss = 0
