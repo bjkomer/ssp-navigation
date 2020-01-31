@@ -97,6 +97,9 @@ class GoalFindingAgent(object):
             inputs = torch.cat([distances, map_id], dim=1)  # dim is set to 1 because there is a batch dimension
             self.agent_ssp = self.snapshot_localization_network(inputs)
 
+            # normalize the agent SSP
+            self.agent_ssp = self.agent_ssp / float(np.linalg.norm(self.agent_ssp.detach().numpy()))
+
     def act(self, distances, velocity, semantic_goal, map_id, item_memory, env,
             use_cleanup_gt=False, use_localization_gt=False, use_policy_gt=False):
         """
