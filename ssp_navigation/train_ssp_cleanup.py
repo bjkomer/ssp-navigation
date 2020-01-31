@@ -104,9 +104,36 @@ def generate_cleanup_dataset(
     # return memory, items, coords, x_axis_sp, y_axis_sp
 
 
+def run_evaluation(testloader, model, writer, epoch, mse_criterion, cosine_criterion, name='test'):
+    with torch.no_grad():
+
+        # Everything is in one batch, so this loop will only happen once
+        for i, data in enumerate(testloader):
+
+            noisy, clean = data
+
+            outputs = model(noisy)
+
+            mse_loss = mse_criterion(outputs, clean)
+            # Modified to use CosineEmbeddingLoss
+            cosine_loss = cosine_criterion(outputs, clean, torch.ones(len(outputs)))
+
+            loss = cosine_loss + mse_loss
+
+            print(cosine_loss.data.item())
+
+        if writer is not None:
+            # TODO: get a visualization of the performance
+            writer.add_scalar('{}_cosine_loss'.format(name), cosine_loss.data.item(), epoch)
+            writer.add_scalar('{}_mse_loss'.format(name), mse_loss.data.item(), epoch)
+            writer.add_scalar('{}_combined_loss'.format(name), loss.data.item(), epoch)
+
+
 def main():
     parser = argparse.ArgumentParser('Train a network to clean up a noisy spatial semantic pointer')
 
+    parser.add_argument('--loss-function', type=str, default='cosine',
+                        choices=['cosine', 'mse', 'combined', 'alternating', 'scaled'])
     parser.add_argument('--spatial-encoding', type=str, default='ssp',
                         choices=[
                             'ssp', 'hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
@@ -122,7 +149,7 @@ def main():
     parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
     parser.add_argument('--ssp-scaling', type=float, default=1.0)
 
-    parser.add_argument('--dataset', type=str, default='')
+    parser.add_argument('--val-period', type=int, default=10, help='number of epochs before a test/validation set run')
     parser.add_argument('--train-fraction', type=float, default=.5, help='proportion of the dataset to use for training')
     parser.add_argument('--n-samples', type=int, default=10000,
                         help='Number of memories to generate. Total samples will be n-samples * n-items')
@@ -241,8 +268,16 @@ def main():
     for e in range(args.epochs):
         print('Epoch: {0}'.format(e + 1))
 
+        if e % args.val_period == 0:
+            run_evaluation(
+                testloader, model, writer, e,
+                mse_criterion, cosine_criterion,
+                name='test'
+            )
+
         avg_mse_loss = 0
         avg_cosine_loss = 0
+        avg_combined_loss = 0
         n_batches = 0
         for i, data in enumerate(trainloader):
 
@@ -258,13 +293,20 @@ def main():
             # Modified to use CosineEmbeddingLoss
             cosine_loss = cosine_criterion(outputs, clean, torch.ones(args.batch_size))
             # print(loss.data.item())
+
+            loss = cosine_loss + mse_loss
+
+            if args.loss_function == 'cosine':
+                cosine_loss.backward()
+            elif args.loss_function == 'mse':
+                mse_loss.backward()
+            elif args.loss_function == 'combined':
+                loss.backward()
+
             avg_cosine_loss += cosine_loss.data.item()
             avg_mse_loss += mse_loss.data.item()
+            avg_combined_loss += loss.data.item()
             n_batches += 1
-
-            cosine_loss.backward()
-
-            # print(loss.data.item())
 
             optimizer.step()
 
@@ -275,31 +317,33 @@ def main():
                 avg_cosine_loss /= n_batches
                 writer.add_scalar('avg_cosine_loss', avg_cosine_loss, e + 1)
                 writer.add_scalar('avg_mse_loss', avg_mse_loss, e + 1)
+                writer.add_scalar('avg_combined_loss', avg_mse_loss, e + 1)
 
             if args.weight_histogram and (e + 1) % 10 == 0:
                 for name, param in model.named_parameters():
                     writer.add_histogram('parameters/' + name, param.clone().cpu().data.numpy(), e + 1)
 
     print("Testing")
-    with torch.no_grad():
-
-        # Everything is in one batch, so this loop will only happen once
-        for i, data in enumerate(testloader):
-
-            noisy, clean = data
-
-            outputs = model(noisy)
-
-            mse_loss = mse_criterion(outputs, clean)
-            # Modified to use CosineEmbeddingLoss
-            cosine_loss = cosine_criterion(outputs, clean, torch.ones(len(dataset_test)))
-
-            print(cosine_loss.data.item())
-
-        if args.logdir != '':
-            # TODO: get a visualization of the performance
-            writer.add_scalar('test_cosine_loss', cosine_loss.data.item())
-            writer.add_scalar('test_mse_loss', mse_loss.data.item())
+    run_evaluation(testloader, model, writer, e, mse_criterion, cosine_criterion, name='test')
+    # with torch.no_grad():
+    #
+    #     # Everything is in one batch, so this loop will only happen once
+    #     for i, data in enumerate(testloader):
+    #
+    #         noisy, clean = data
+    #
+    #         outputs = model(noisy)
+    #
+    #         mse_loss = mse_criterion(outputs, clean)
+    #         # Modified to use CosineEmbeddingLoss
+    #         cosine_loss = cosine_criterion(outputs, clean, torch.ones(len(dataset_test)))
+    #
+    #         print(cosine_loss.data.item())
+    #
+    #     if args.logdir != '':
+    #         # TODO: get a visualization of the performance
+    #         writer.add_scalar('test_cosine_loss', cosine_loss.data.item())
+    #         writer.add_scalar('test_mse_loss', mse_loss.data.item())
 
     # Close tensorboard writer
     if args.logdir != '':
