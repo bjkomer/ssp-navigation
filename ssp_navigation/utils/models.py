@@ -65,7 +65,7 @@ class MLP(nn.Module):
 
     def forward(self, inputs):
 
-        features = F.relu(self.input_layer(inputs))
+        features = self.dropout(F.relu(self.input_layer(inputs)))
         for i in range(self.n_layers - 1):
             features = self.dropout(F.relu(self.inner_layers[i](features)))
         prediction = self.output_layer(features)
@@ -108,7 +108,7 @@ class LearnedEncoding(nn.Module):
 
         loc_encoding = F.relu(self.encoding_layer(loc_pos))
         goal_encoding = F.relu(self.encoding_layer(goal_pos))
-        features = F.relu(self.input_layer(torch.cat([maze_id, loc_encoding, goal_encoding], dim=1)))
+        features = self.dropout(F.relu(self.input_layer(torch.cat([maze_id, loc_encoding, goal_encoding], dim=1))))
 
         for i in range(self.n_layers - 1):
             features = self.dropout(F.relu(self.inner_layers[i](features)))
