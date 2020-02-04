@@ -44,7 +44,7 @@ class MLP(nn.Module):
     Multi-layer feed-forward model
     """
 
-    def __init__(self, input_size=512, hidden_size=512, output_size=512, n_layers=2):
+    def __init__(self, input_size=512, hidden_size=512, output_size=512, n_layers=2, dropout_fraction=0.0):
         super(MLP, self).__init__()
 
         self.input_size = input_size
@@ -56,6 +56,8 @@ class MLP(nn.Module):
         # of the parameters, and allows network.to(device) to work correctly
         self.inner_layers = nn.ModuleList()
 
+        self.dropout = nn.Dropout(p=dropout_fraction)
+
         self.input_layer = nn.Linear(self.input_size, self.hidden_size)
         for i in range(self.n_layers - 1):
             self.inner_layers.append(nn.Linear(self.hidden_size, self.hidden_size))
@@ -65,7 +67,7 @@ class MLP(nn.Module):
 
         features = F.relu(self.input_layer(inputs))
         for i in range(self.n_layers - 1):
-            features = F.relu(self.inner_layers[i](features))
+            features = self.dropout(F.relu(self.inner_layers[i](features)))
         prediction = self.output_layer(features)
 
         return prediction
@@ -73,7 +75,8 @@ class MLP(nn.Module):
 
 class LearnedEncoding(nn.Module):
 
-    def __init__(self, input_size=2, encoding_size=512, maze_id_size=512, hidden_size=512, output_size=2, n_layers=1):
+    def __init__(self, input_size=2, encoding_size=512, maze_id_size=512,
+                 hidden_size=512, output_size=2, n_layers=1, dropout_fraction=0.0):
         super(LearnedEncoding, self).__init__()
 
         self.input_size = input_size
@@ -86,6 +89,8 @@ class LearnedEncoding(nn.Module):
         # Need to use ModuleList rather than a regular Python list so that the module correctly keeps track
         # of the parameters, and allows network.to(device) to work correctly
         self.inner_layers = nn.ModuleList()
+
+        self.dropout = nn.Dropout(p=dropout_fraction)
 
         self.encoding_layer = nn.Linear(self.input_size, self.encoding_size)
 
@@ -106,7 +111,7 @@ class LearnedEncoding(nn.Module):
         features = F.relu(self.input_layer(torch.cat([maze_id, loc_encoding, goal_encoding], dim=1)))
 
         for i in range(self.n_layers - 1):
-            features = F.relu(self.inner_layers[i](features))
+            features = self.dropout(F.relu(self.inner_layers[i](features)))
         prediction = self.output_layer(features)
 
         return prediction, features, loc_encoding, goal_encoding

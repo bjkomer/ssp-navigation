@@ -202,6 +202,7 @@ class PolicyValidationSet(object):
         criterion = nn.MSELoss()
 
         with torch.no_grad():
+            model.eval()
             # Each maze is in one batch
             for i, data in enumerate(self.vizloader):
                 print("Viz batch {} of {}".format(i + 1, self.n_mazes * self.n_goals))
@@ -240,12 +241,14 @@ class PolicyValidationSet(object):
                 writer.add_figure('v{}/viz set predictions'.format(i), fig_pred, epoch)
                 # writer.add_figure('v{}/viz set predictions quiver'.format(i), fig_pred_quiver, epoch)
                 writer.add_scalar(tag='viz_loss/{}'.format(i), scalar_value=loss.data.item(), global_step=epoch)
+            model.train()
 
     # Note that this must be a separate function because the previous cannot contain yields
     def run_validation_generator(self, model, epoch, use_wall_overlay=True):
         criterion = nn.MSELoss()
 
         with torch.no_grad():
+            model.eval()
             # Each maze is in one batch
             for i, data in enumerate(self.vizloader):
                 print("Viz batch {} of {}".format(i + 1, self.n_mazes * self.n_goals))
@@ -279,12 +282,14 @@ class PolicyValidationSet(object):
                     )
 
                 yield fig_pred, fig_pred_quiver
+            model.train()
 
     def get_rmse(self, model):
 
         ret = np.zeros((self.n_mazes * self.n_goals, 2))
 
         with torch.no_grad():
+            model.eval()
             # Each maze is in one batch
             for i, data in enumerate(self.vizloader):
                 print("Viz batch {} of {}".format(i + 1, self.n_mazes * self.n_goals))
@@ -302,6 +307,7 @@ class PolicyValidationSet(object):
 
                 ret[i, 0] = rmse
                 ret[i, 1] = angle_rmse
+            model.train()
 
         return ret
 

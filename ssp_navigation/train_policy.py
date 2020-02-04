@@ -51,8 +51,11 @@ parser.add_argument('--seed', type=int, default=13, help='Seed for training and 
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the SSPs')
 parser.add_argument('--n-train-samples', type=int, default=50000, help='Number of training samples')
 parser.add_argument('--n-test-samples', type=int, default=50000, help='Number of testing samples')
+
 parser.add_argument('--hidden-size', type=int, default=512, help='Size of the hidden layer in the model')
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
+parser.add_argument('--dropout-fraction', type=float, default=0.0, help='Amount of dropout to apply during training')
+
 parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--momentum', type=float, default=0.9)
@@ -176,14 +179,16 @@ if 'learned' in args.spatial_encoding:
         maze_id_size=id_size,
         hidden_size=args.hidden_size,
         output_size=2,
-        n_layers=args.n_hidden_layers
+        n_layers=args.n_hidden_layers,
+        dropout_fraction=args.dropout_fraction,
     )
 else:
     model = MLP(
         input_size=id_size + repr_dim * 2,
         hidden_size=args.hidden_size,
         output_size=2,
-        n_layers=args.n_hidden_layers
+        n_layers=args.n_hidden_layers,
+        dropout_fraction=args.dropout_fraction,
     )
 
 model.to(device)
@@ -236,6 +241,7 @@ elif args.optimizer == 'adam':
 else:
     raise NotImplementedError
 
+model.train()
 for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
     print('Epoch: {0}'.format(e + 1))
 
@@ -255,6 +261,7 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
         avg_test_cosine_loss = 0
         n_test_batches = 0
         with torch.no_grad():
+            model.eval()
             # Everything is in one batch, so this loop will only happen once
             for i, data in enumerate(testloader):
                 maze_loc_goal_ssps, directions, locs, goals = data
@@ -271,6 +278,7 @@ for e in range(args.epoch_offset, args.epochs + args.epoch_offset):
                 avg_test_mse_loss += mse_loss.data.item()
                 avg_test_cosine_loss += cosine_loss.data.item()
                 n_test_batches += 1
+            model.train()
 
         if n_test_batches > 0:
             avg_test_mse_loss /= n_test_batches
@@ -327,6 +335,7 @@ avg_test_mse_loss = 0
 avg_test_cosine_loss = 0
 n_test_batches = 0
 with torch.no_grad():
+    model.eval()
     # Everything is in one batch, so this loop will only happen once
     for i, data in enumerate(testloader):
         maze_loc_goal_ssps, directions, locs, goals = data
