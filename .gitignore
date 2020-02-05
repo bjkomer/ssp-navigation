@@ -3,6 +3,7 @@
 *.json
 *.pt
 *.sh
+*.npz
 *.egg-info
 .idea
 __pycache__
