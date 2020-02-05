@@ -307,7 +307,7 @@ if not args.use_policy_gt:
     policy_network.eval()
 
 snapshot_localization_network = FeedForward(
-    input_size=n_sensors + n_maps,
+    input_size=n_sensors + id_size,
     hidden_size=args.localization_hidden_size,
     output_size=args.dim,
 )
