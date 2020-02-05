@@ -653,11 +653,17 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
     yso = np.linspace(ys[0], ys[-1], int(np.sqrt(args.dim)))
 
     # n_mazes by n_goals by dim
-    if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
-        goal_sps = goals.copy()
-    elif args.spatial_encoding == '2d-normalized':
-        goal_sps = goals.copy()
-        goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+    # if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+    #     goal_sps = goals.copy()
+    # elif args.spatial_encoding == '2d-normalized':
+    #     goal_sps = goals.copy()
+    #     goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+    if '2d' in args.spatial_encoding or 'learned' in args.spatial_encoding:
+        # both regular and normalized versions will be handled by this case
+        goal_sps = np.zeros((n_mazes, n_goals, 2))
+        for ni in range(n_mazes):
+            for gi in range(n_goals):
+                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
     else:
         goal_sps = np.zeros((n_mazes, n_goals, args.dim))
         for ni in range(n_mazes):
@@ -768,12 +774,18 @@ def create_train_test_dataloaders(
     xso = np.linspace(xs[0], xs[-1], int(np.sqrt(args.dim)))
     yso = np.linspace(ys[0], ys[-1], int(np.sqrt(args.dim)))
 
-    # n_mazes by n_goals by dim
-    if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
-        goal_sps = goals.copy()
-    elif args.spatial_encoding == '2d-normalized':
-        goal_sps = goals.copy()
-        goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+    # # n_mazes by n_goals by dim
+    # if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+    #     goal_sps = goals.copy()
+    # elif args.spatial_encoding == '2d-normalized':
+    #     goal_sps = goals.copy()
+    #     goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+    if '2d' in args.spatial_encoding or 'learned' in args.spatial_encoding:
+        # both regular and normalized versions will be handled by this case
+        goal_sps = np.zeros((n_mazes, n_goals, 2))
+        for ni in range(n_mazes):
+            for gi in range(n_goals):
+                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
     else:
         goal_sps = np.zeros((n_mazes, n_goals, args.dim))
         for ni in range(n_mazes):
