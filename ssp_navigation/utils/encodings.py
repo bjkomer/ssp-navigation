@@ -301,7 +301,7 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
         # no special encoding required for these cases
         def encoding_func(x, y):
             return np.array([x, y])
-    elif args.spatial_encoding == '2d-normalized':
+    elif 'normalized' in args.spatial_encoding:
         repr_dim = 2
 
         def encoding_func(x, y):

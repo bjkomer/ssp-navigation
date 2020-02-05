@@ -29,7 +29,8 @@ parser.add_argument('--val-period', type=int, default=25, help='number of epochs
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'hex-ssp', 'periodic-hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
-                        'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
+                        'trig', 'random-trig', 'random-proj',
+                        'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
@@ -195,7 +196,7 @@ model.to(device)
 
 
 if args.load_saved_model:
-    if args.spatial_encoding == 'frozen-learned':
+    if 'frozen-learned' in args.spatial_encoding:
         # TODO: make sure this is working correctly
         print("Loading learned first layer parameters from pretrained model")
         state_dict = torch.load(args.load_saved_model)
