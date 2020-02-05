@@ -16,7 +16,7 @@ import os
 class PolicyValidationSet(object):
 
     def __init__(self, data, dim, maze_sps, maze_indices, goal_indices, subsample=2,
-                 encoding_func=None, device=None, cache_fname='',
+                 encoding_func=None, tile_mazes=False, device=None, cache_fname='',
                  # spatial_encoding='ssp',
                  ):
         # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
@@ -61,6 +61,21 @@ class PolicyValidationSet(object):
 
         res = fine_mazes.shape[1]
 
+        # spatial offsets used when tiling mazes
+        offsets = np.zeros((n_mazes, 2))
+
+        if tile_mazes:
+            length = int(np.ceil(np.sqrt(n_mazes)))
+            size = data['coarse_mazes'].shape[1]
+            for x in range(length):
+                for y in range(length):
+                    ind = int(x * length + y)
+                    if ind >= n_mazes:
+                        continue
+                    else:
+                        offsets[int(x * length + y), 0] = x * size
+                        offsets[int(x * length + y), 1] = y * size
+
         if os.path.exists(cache_fname):
             print("Loading visualization data from cache")
 
@@ -80,7 +95,10 @@ class PolicyValidationSet(object):
             goal_sps = np.zeros((n_mazes, n_goals, dim))
             for ni in range(goal_sps.shape[0]):
                 for gi in range(goal_sps.shape[1]):
-                    goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+                    goal_sps[ni, gi, :] = encoding_func(
+                        x=goals[ni, gi, 0] + offsets[ni, 0],
+                        y=goals[ni, gi, 1] + offsets[ni, 1]
+                    )
 
             n_samples = int(res/subsample) * int(res/subsample) * self.n_mazes * self.n_goals
 
@@ -90,7 +108,10 @@ class PolicyValidationSet(object):
             viz_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
             viz_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
             viz_output_dirs = np.zeros((n_samples, 2))
-            viz_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+            if maze_sps is None:
+                viz_maze_sps = None
+            else:
+                viz_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
 
             # Generate data so each batch contains a single maze and goal
             si = 0  # sample index, increments each time
@@ -98,12 +119,12 @@ class PolicyValidationSet(object):
                 for gi in goal_indices:
                     for xi in range(0, res, subsample):
                         for yi in range(0, res, subsample):
-                            loc_x = self.xs[xi]
-                            loc_y = self.ys[yi]
+                            loc_x = self.xs[xi] + offsets[ni, 0]
+                            loc_y = self.ys[yi] + offsets[ni, 1]
 
                             viz_locs[si, 0] = loc_x
                             viz_locs[si, 1] = loc_y
-                            viz_goals[si, :] = goals[mi, gi, :]
+                            viz_goals[si, :] = goals[mi, gi, :] + offsets[ni, :]
 
                             viz_loc_sps[si, :] = encoding_func(x=loc_x, y=loc_y)
 
@@ -111,7 +132,8 @@ class PolicyValidationSet(object):
 
                             viz_output_dirs[si, :] = solved_mazes[mi, gi, xi, yi, :]
 
-                            viz_maze_sps[si, :] = maze_sps[mi]
+                            if maze_sps is not None:
+                                viz_maze_sps[si, :] = maze_sps[mi]
 
                             si += 1
 
@@ -623,7 +645,7 @@ class OpenEnvPolicyValidationSet(PolicyValidationSet):
         )
 
 
-def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin_memory=False):
+def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, tile_mazes=False, pin_memory=False):
     # x_axis_sp = spa.SemanticPointer(data=data['x_axis_sp'])
     # y_axis_sp = spa.SemanticPointer(data=data['y_axis_sp'])
 
@@ -652,6 +674,21 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
     xso = np.linspace(xs[0], xs[-1], int(np.sqrt(args.dim)))
     yso = np.linspace(ys[0], ys[-1], int(np.sqrt(args.dim)))
 
+    # spatial offsets used when tiling mazes
+    offsets = np.zeros((n_mazes, 2))
+
+    if tile_mazes:
+        length = int(np.ceil(np.sqrt(n_mazes)))
+        size = data['coarse_mazes'].shape[1]
+        for x in range(length):
+            for y in range(length):
+                ind = int(x * length + y)
+                if ind >= n_mazes:
+                    continue
+                else:
+                    offsets[int(x * length + y), 0] = x * size
+                    offsets[int(x * length + y), 1] = y * size
+
     # n_mazes by n_goals by dim
     # if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
     #     goal_sps = goals.copy()
@@ -663,12 +700,18 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
         goal_sps = np.zeros((n_mazes, n_goals, 2))
         for ni in range(n_mazes):
             for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+                goal_sps[ni, gi, :] = encoding_func(
+                    x=goals[ni, gi, 0] + offsets[ni, 0],
+                    y=goals[ni, gi, 1] + offsets[ni, 1]
+                )
     else:
         goal_sps = np.zeros((n_mazes, n_goals, args.dim))
         for ni in range(n_mazes):
             for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+                goal_sps[ni, gi, :] = encoding_func(
+                    x=goals[ni, gi, 0] + offsets[ni, 0],
+                    y=goals[ni, gi, 1] + offsets[ni, 1]
+                )
 
     if 'xs' in data.keys():
         xs = data['xs']
@@ -687,7 +730,8 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
     train_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
     train_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
     train_output_dirs = np.zeros((n_samples, 2))
-    train_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+    if maze_sps is not None:
+        train_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
 
     train_indices = np.random.randint(low=0, high=n_free_spaces, size=n_samples)
 
@@ -702,12 +746,12 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
         goal_index = np.random.randint(low=0, high=n_goals)
 
         # 2D coordinate of the agent's current location
-        loc_x = xs[x_index]
-        loc_y = ys[y_index]
+        loc_x = xs[x_index] + offsets[ni, 0]
+        loc_y = ys[y_index] + offsets[ni, 1]
 
         train_locs[n, 0] = loc_x
         train_locs[n, 1] = loc_y
-        train_goals[n, :] = goals[maze_index, goal_index, :]
+        train_goals[n, :] = goals[maze_index, goal_index, :] + offsets[ni, :]
 
         train_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
 
@@ -715,7 +759,8 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, pin
 
         train_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
 
-        train_maze_sps[n, :] = maze_sps[maze_index]
+        if maze_sps is not None:
+            train_maze_sps[n, :] = maze_sps[maze_index]
 
     dataset_train = MazeDataset(
         maze_ssp=train_maze_sps,
@@ -737,6 +782,7 @@ def create_train_test_dataloaders(
         data, n_train_samples, n_test_samples,
         n_mazes,
         maze_sps, args, encoding_func,
+        tile_mazes=False,
         split_seed=13,
         pin_memory=False):
     """
@@ -774,6 +820,22 @@ def create_train_test_dataloaders(
     xso = np.linspace(xs[0], xs[-1], int(np.sqrt(args.dim)))
     yso = np.linspace(ys[0], ys[-1], int(np.sqrt(args.dim)))
 
+    # spatial offsets used when tiling mazes
+    offsets = np.zeros((n_mazes, 2))
+
+    if tile_mazes:
+        length = int(np.ceil(np.sqrt(n_mazes)))
+        size = data['coarse_mazes'].shape[1]
+        for x in range(length):
+            for y in range(length):
+                ind = int(x * length + y)
+                if ind >= n_mazes:
+                    continue
+                else:
+                    offsets[int(x * length + y), 0] = x * size
+                    offsets[int(x * length + y), 1] = y * size
+
+
     # # n_mazes by n_goals by dim
     # if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
     #     goal_sps = goals.copy()
@@ -785,12 +847,18 @@ def create_train_test_dataloaders(
         goal_sps = np.zeros((n_mazes, n_goals, 2))
         for ni in range(n_mazes):
             for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+                goal_sps[ni, gi, :] = encoding_func(
+                    x=goals[ni, gi, 0] + offsets[ni, 0],
+                    y=goals[ni, gi, 1] + offsets[ni, 1]
+                )
     else:
         goal_sps = np.zeros((n_mazes, n_goals, args.dim))
         for ni in range(n_mazes):
             for gi in range(n_goals):
-                goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+                goal_sps[ni, gi, :] = encoding_func(
+                    x=goals[ni, gi, 0] + offsets[ni, 0],
+                    y=goals[ni, gi, 1] + offsets[ni, 1]
+                )
 
     if 'xs' in data.keys():
         xs = data['xs']
@@ -840,7 +908,10 @@ def create_train_test_dataloaders(
         sample_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
         sample_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
         sample_output_dirs = np.zeros((n_samples, 2))
-        sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+        if tile_mazes:
+            sample_maze_sps = None
+        else:
+            sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
 
         for n in range(n_samples):
 
@@ -852,12 +923,12 @@ def create_train_test_dataloaders(
             goal_index = goal_indices[sample_goal_indices[n]]
 
             # 2D coordinate of the agent's current location
-            loc_x = xs[x_index]
-            loc_y = ys[y_index]
+            loc_x = xs[x_index] + offsets[maze_index, 0]
+            loc_y = ys[y_index] + offsets[maze_index, 1]
 
             sample_locs[n, 0] = loc_x
             sample_locs[n, 1] = loc_y
-            sample_goals[n, :] = goals[maze_index, goal_index, :]
+            sample_goals[n, :] = goals[maze_index, goal_index, :] + offsets[maze_index, :]
 
             sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
 
@@ -865,7 +936,8 @@ def create_train_test_dataloaders(
 
             sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
 
-            sample_maze_sps[n, :] = maze_sps[maze_index]
+            if not tile_mazes:
+                sample_maze_sps[n, :] = maze_sps[maze_index]
 
         dataset = MazeDataset(
             maze_ssp=sample_maze_sps,

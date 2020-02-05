@@ -43,7 +43,7 @@ parser.add_argument('--ssp-scaling', type=float, default=1.0)
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--encoding-limit', type=float, default=0.0,
                     help='if set, use this upper limit to define the space that the encoding is optimized over')
-parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='one-hot',
+parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'random-sp'], default='random-sp',
                     help='ssp: region corresponding to maze layout.'
                          'one-hot: each maze given a one-hot vector.'
                          'random-sp: each maze given a unique random SP as an ID')
@@ -52,6 +52,8 @@ parser.add_argument('--seed', type=int, default=13, help='Seed for training and 
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the SSPs')
 parser.add_argument('--n-train-samples', type=int, default=50000, help='Number of training samples')
 parser.add_argument('--n-test-samples', type=int, default=50000, help='Number of testing samples')
+
+parser.add_argument('--tile-mazes', action='store_true', help='put all mazes into the same space')
 
 parser.add_argument('--hidden-size', type=int, default=512, help='Size of the hidden layer in the model')
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
@@ -123,10 +125,13 @@ elif args.maze_id_type == 'one-hot':
     maze_sps = np.eye(n_mazes)
 elif args.maze_id_type == 'random-sp':
     id_size = args.maze_id_dim
-    maze_sps = np.zeros((n_mazes, args.maze_id_dim))
-    # overwrite data
-    for mi in range(n_mazes):
-        maze_sps[mi, :] = spa.SemanticPointer(args.maze_id_dim).v
+    if id_size != 0:
+        maze_sps = np.zeros((n_mazes, args.maze_id_dim))
+        # overwrite data
+        for mi in range(n_mazes):
+            maze_sps[mi, :] = spa.SemanticPointer(args.maze_id_dim).v
+    else:
+        maze_sps = None
 else:
     raise NotImplementedError
 
@@ -135,6 +140,10 @@ if args.encoding_limit != 0.0:
     limit_high = args.encoding_limit
 else:
     limit_high = data['coarse_mazes'].shape[2]
+
+    # modify the encoding limit to account for all of the environments
+    if args.tile_mazes:
+        limit_high *= int(np.ceil(np.sqrt(args.n_mazes)))
 
 encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
@@ -158,12 +167,14 @@ else:
 validation_set = PolicyValidationSet(
     data=data, dim=repr_dim, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
     # spatial_encoding=args.spatial_encoding,
+    tile_mazes=args.tile_mazes,
     encoding_func=encoding_func, device=device
 )
 
 trainloader, testloader = create_train_test_dataloaders(
     data=data, n_train_samples=args.n_train_samples, n_test_samples=args.n_test_samples,
     maze_sps=maze_sps, args=args, n_mazes=args.n_mazes,
+    tile_mazes=args.tile_mazes,
     encoding_func=encoding_func, pin_memory=pin_memory
 )
 
@@ -375,7 +386,7 @@ if args.logdir != '':
     params = vars(args)
 
     # if random-sp is used as maze-id-type, then save the sps used as well
-    if args.maze_id_type == 'random-sp':
+    if args.maze_id_type == 'random-sp' and args.maze_id_dim > 0:
         params['maze_sps'] = [list(maze_sps[mi, :]) for mi in range(n_mazes)]
 
     with open(os.path.join(save_dir, "params.json"), "w") as f:
