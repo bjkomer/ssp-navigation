@@ -119,12 +119,12 @@ class PolicyValidationSet(object):
                 for gi in goal_indices:
                     for xi in range(0, res, subsample):
                         for yi in range(0, res, subsample):
-                            loc_x = self.xs[xi] + offsets[ni, 0]
-                            loc_y = self.ys[yi] + offsets[ni, 1]
+                            loc_x = self.xs[xi] + offsets[mi, 0]
+                            loc_y = self.ys[yi] + offsets[mi, 1]
 
                             viz_locs[si, 0] = loc_x
                             viz_locs[si, 1] = loc_y
-                            viz_goals[si, :] = goals[mi, gi, :] + offsets[ni, :]
+                            viz_goals[si, :] = goals[mi, gi, :] + offsets[mi, :]
 
                             viz_loc_sps[si, :] = encoding_func(x=loc_x, y=loc_y)
 
@@ -385,6 +385,7 @@ class PolicyEvaluation(object):
 
                  spatial_encoding, n_mazes, n_train_samples=100000, n_test_samples=100000, split_seed=13,
                  encoding_func=None, device=None, #cache_fname='',
+                 tile_mazes=False,
                  batch_size=64, pin_memory=False
                  ):
 
@@ -413,17 +414,44 @@ class PolicyEvaluation(object):
         xso = np.linspace(xs[0], xs[-1], int(np.sqrt(dim)))
         yso = np.linspace(ys[0], ys[-1], int(np.sqrt(dim)))
 
+        # spatial offsets used when tiling mazes
+        offsets = np.zeros((n_mazes, 2))
+
+        if tile_mazes:
+            length = int(np.ceil(np.sqrt(n_mazes)))
+            size = data['coarse_mazes'].shape[1]
+            for x in range(length):
+                for y in range(length):
+                    ind = int(x * length + y)
+                    if ind >= n_mazes:
+                        continue
+                    else:
+                        offsets[int(x * length + y), 0] = x * size
+                        offsets[int(x * length + y), 1] = y * size
+
         # n_mazes by n_goals by dim
-        if spatial_encoding == '2d' or spatial_encoding == 'learned' or spatial_encoding == 'frozen-learned':
-            goal_sps = goals.copy()
-        elif spatial_encoding == '2d-normalized':
-            goal_sps = goals.copy()
-            goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+        # if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+        #     goal_sps = goals.copy()
+        # elif args.spatial_encoding == '2d-normalized':
+        #     goal_sps = goals.copy()
+        #     goal_sps = ((goal_sps - xso[0]) * 2 / (xso[-1] - xso[0])) - 1
+        if '2d' in spatial_encoding or 'learned' in spatial_encoding:
+            # both regular and normalized versions will be handled by this case
+            goal_sps = np.zeros((n_mazes, n_goals, 2))
+            for ni in range(n_mazes):
+                for gi in range(n_goals):
+                    goal_sps[ni, gi, :] = encoding_func(
+                        x=goals[ni, gi, 0] + offsets[ni, 0],
+                        y=goals[ni, gi, 1] + offsets[ni, 1]
+                    )
         else:
             goal_sps = np.zeros((n_mazes, n_goals, dim))
             for ni in range(n_mazes):
                 for gi in range(n_goals):
-                    goal_sps[ni, gi, :] = encoding_func(x=goals[ni, gi, 0], y=goals[ni, gi, 1])
+                    goal_sps[ni, gi, :] = encoding_func(
+                        x=goals[ni, gi, 0] + offsets[ni, 0],
+                        y=goals[ni, gi, 1] + offsets[ni, 1]
+                    )
 
         xs = data['xs']
         ys = data['ys']
@@ -474,7 +502,10 @@ class PolicyEvaluation(object):
             sample_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
             sample_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
             sample_output_dirs = np.zeros((n_samples, 2))
-            sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+            if maze_sps is None:
+                sample_maze_sps = None
+            else:
+                sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
 
             for n in range(n_samples):
                 # n_mazes by res by res
@@ -485,8 +516,8 @@ class PolicyEvaluation(object):
                 goal_index = goal_indices[sample_goal_indices[n]]
 
                 # 2D coordinate of the agent's current location
-                loc_x = xs[x_index]
-                loc_y = ys[y_index]
+                loc_x = xs[x_index] + offsets[maze_index, 0]
+                loc_y = ys[y_index] + offsets[maze_index, 0]
 
                 sample_locs[n, 0] = loc_x
                 sample_locs[n, 1] = loc_y
@@ -498,7 +529,8 @@ class PolicyEvaluation(object):
 
                 sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
 
-                sample_maze_sps[n, :] = maze_sps[maze_index]
+                if maze_sps is not None:
+                    sample_maze_sps[n, :] = maze_sps[maze_index]
 
             dataset = MazeDataset(
                 maze_ssp=sample_maze_sps,
@@ -746,12 +778,12 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, til
         goal_index = np.random.randint(low=0, high=n_goals)
 
         # 2D coordinate of the agent's current location
-        loc_x = xs[x_index] + offsets[ni, 0]
-        loc_y = ys[y_index] + offsets[ni, 1]
+        loc_x = xs[x_index] + offsets[maze_index, 0]
+        loc_y = ys[y_index] + offsets[maze_index, 1]
 
         train_locs[n, 0] = loc_x
         train_locs[n, 1] = loc_y
-        train_goals[n, :] = goals[maze_index, goal_index, :] + offsets[ni, :]
+        train_goals[n, :] = goals[maze_index, goal_index, :] + offsets[maze_index, :]
 
         train_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
 
@@ -908,7 +940,7 @@ def create_train_test_dataloaders(
         sample_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
         sample_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
         sample_output_dirs = np.zeros((n_samples, 2))
-        if tile_mazes:
+        if maze_sps is None:
             sample_maze_sps = None
         else:
             sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
@@ -936,7 +968,7 @@ def create_train_test_dataloaders(
 
             sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
 
-            if not tile_mazes:
+            if maze_sps is not None:
                 sample_maze_sps[n, :] = maze_sps[maze_index]
 
         dataset = MazeDataset(

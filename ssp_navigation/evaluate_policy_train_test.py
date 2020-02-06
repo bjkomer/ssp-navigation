@@ -20,8 +20,9 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
-                        'ssp', 'hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
-                        'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
+                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
+                        'trig', 'random-trig', 'random-proj',
+                        'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
@@ -53,6 +54,8 @@ parser.add_argument('--out-file', type=str, default="", help='Output file name')
 
 parser.add_argument('--n-train-samples', type=int, default=100000, help='Number of training samples to evaluate')
 parser.add_argument('--n-test-samples', type=int, default=100000, help='Number of test set samples to evaluate')
+
+parser.add_argument('--tile-mazes', action='store_true', help='put all mazes into the same space')
 
 # Tags for the pandas dataframe
 parser.add_argument('--dataset', type=str, default='', choices=['', 'blocks', 'maze', 'mixed'])
@@ -127,10 +130,13 @@ elif args.maze_id_type == 'one-hot':
     maze_sps = np.eye(n_mazes)
 elif args.maze_id_type == 'random-sp':
     id_size = args.maze_id_dim
-    maze_sps = np.zeros((n_mazes, args.maze_id_dim))
-    # overwrite data
-    for mi in range(n_mazes):
-        maze_sps[mi, :] = spa.SemanticPointer(args.maze_id_dim).v
+    if id_size > 0:
+        maze_sps = np.zeros((n_mazes, args.maze_id_dim))
+        # overwrite data
+        for mi in range(n_mazes):
+            maze_sps[mi, :] = spa.SemanticPointer(args.maze_id_dim).v
+    else:
+        maze_sps = None
 else:
     raise NotImplementedError
 
@@ -195,6 +201,7 @@ validation_set = PolicyEvaluation(
     n_test_samples=args.n_test_samples,
     spatial_encoding=args.spatial_encoding,
     n_mazes=n_mazes,
+    tile_mazes=args.tile_mazes,
 )
 
 # Reset seeds here after generating data

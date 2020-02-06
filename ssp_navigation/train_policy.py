@@ -125,7 +125,7 @@ elif args.maze_id_type == 'one-hot':
     maze_sps = np.eye(n_mazes)
 elif args.maze_id_type == 'random-sp':
     id_size = args.maze_id_dim
-    if id_size != 0:
+    if id_size > 0:
         maze_sps = np.zeros((n_mazes, args.maze_id_dim))
         # overwrite data
         for mi in range(n_mazes):

@@ -102,13 +102,21 @@ class LearnedEncoding(nn.Module):
     def forward_activations_encoding(self, inputs):
         """Returns the hidden layer activations as well as the prediction"""
 
-        maze_id = inputs[:, :self.maze_id_size]
-        loc_pos = inputs[:, self.maze_id_size:self.maze_id_size + self.input_size]
-        goal_pos = inputs[:, self.maze_id_size + self.input_size:self.maze_id_size + self.input_size*2]
+        if self.maze_id_size == 0:
+            loc_pos = inputs[:, :self.input_size]
+            goal_pos = inputs[:, self.input_size:self.input_size * 2]
 
-        loc_encoding = F.relu(self.encoding_layer(loc_pos))
-        goal_encoding = F.relu(self.encoding_layer(goal_pos))
-        features = self.dropout(F.relu(self.input_layer(torch.cat([maze_id, loc_encoding, goal_encoding], dim=1))))
+            loc_encoding = F.relu(self.encoding_layer(loc_pos))
+            goal_encoding = F.relu(self.encoding_layer(goal_pos))
+            features = self.dropout(F.relu(self.input_layer(torch.cat([loc_encoding, goal_encoding], dim=1))))
+        else:
+            maze_id = inputs[:, :self.maze_id_size]
+            loc_pos = inputs[:, self.maze_id_size:self.maze_id_size + self.input_size]
+            goal_pos = inputs[:, self.maze_id_size + self.input_size:self.maze_id_size + self.input_size*2]
+
+            loc_encoding = F.relu(self.encoding_layer(loc_pos))
+            goal_encoding = F.relu(self.encoding_layer(goal_pos))
+            features = self.dropout(F.relu(self.input_layer(torch.cat([maze_id, loc_encoding, goal_encoding], dim=1))))
 
         for i in range(self.n_layers - 1):
             features = self.dropout(F.relu(self.inner_layers[i](features)))
