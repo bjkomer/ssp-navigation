@@ -44,6 +44,7 @@ parser.add_argument('--seed', type=int, default=13, help='Seed for training and 
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the SSPs')
 parser.add_argument('--hidden-size', type=int, default=512, help='Size of the hidden layer in the model')
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
+parser.add_argument('--dropout-fraction', type=float, default=0.0, help='Amount of dropout to apply during training')
 parser.add_argument('--dataset-dir', type=str, default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed')
 parser.add_argument('--model', type=str, default='', help='Saved model to use')
 
@@ -177,14 +178,16 @@ if 'learned' in args.spatial_encoding:
         maze_id_size=id_size,
         hidden_size=args.hidden_size,
         output_size=2,
-        n_layers=args.n_hidden_layers
+        n_layers=args.n_hidden_layers,
+        dropout_fraction=args.dropout_fraction,
     )
 else:
     model = MLP(
         input_size=id_size + repr_dim * 2,
         hidden_size=args.hidden_size,
         output_size=2,
-        n_layers=args.n_hidden_layers
+        n_layers=args.n_hidden_layers,
+        dropout_fraction=args.dropout_fraction,
     )
 
 if args.gpu == -1:
@@ -222,6 +225,9 @@ df['Hidden Layers'] = args.n_hidden_layers
 df['Encoding'] = args.spatial_encoding
 df['Seed'] = args.seed
 df['Maze ID Type'] = args.maze_id_type
+df['Maze ID Dim'] = args.maze_id_dim
+df['Tile Mazes'] = args.tile_mazes
+df['Dropout Fraction'] = args.dropout_fraction
 
 # # Other differentiators
 # df['Number of Mazes Tested'] = args.n_mazes_tested
@@ -238,6 +244,7 @@ df['Learning Rate'] = args.lr
 df['Momentum'] = args.momentum
 df['Optimizer'] = args.optimizer
 df['SSP Scaling'] = args.ssp_scaling
+
 
 df.to_csv(args.out_file)
 
