@@ -1,6 +1,6 @@
 import numpy as np
 from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make_good_unitary, encode_random, \
-    make_optimal_periodic_axis
+    make_optimal_periodic_axis, get_fixed_dim_grid_axes
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
 import torch
@@ -236,6 +236,25 @@ def get_hex_ssp_encode_func(dim, seed, scaling=1.0, optimal_phi=False):
     return encode_ssp
 
 
+def get_grid_ssp_encode_func(dim, seed, scale_min=1.0, scale_max=2.0, scaling=1.0):
+    """
+    Generates an encoding function for SSPs that only takes (x,y) as input
+    :param dim: dimension of the SSP
+    :param seed: seed for randomly choosing rotations and scaling of the plane waves
+    :param scale_min: smallest possible plane wave scale
+    :param scale_max: largest possible plane wave scale
+    :param scaling: scaling the resolution of the space
+    :return:
+    """
+
+    x_axis_sp, y_axis_sp = get_fixed_dim_grid_axes(dim=dim, seed=seed, scale_min=scale_min, scale_max=scale_max)
+
+    def encode_ssp(x, y):
+        return encode_point(x * scaling, y * scaling, x_axis_sp, y_axis_sp).v
+
+    return encode_ssp
+
+
 def get_one_hot_encode_func(dim=512, limit_low=0, limit_high=13):
 
     optimal_side = int(np.floor(np.sqrt(dim)))
@@ -315,6 +334,9 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
     elif args.spatial_encoding == 'periodic-hex-ssp':
         repr_dim = args.dim
         encoding_func = get_hex_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling, optimal_phi=True)
+    elif args.spatial_encoding == 'grid-ssp':
+        repr_dim = args.dim
+        encoding_func = get_grid_ssp_encode_func(args.dim, args.seed, scale_min=1, scale_max=2, scaling=args.ssp_scaling)
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
