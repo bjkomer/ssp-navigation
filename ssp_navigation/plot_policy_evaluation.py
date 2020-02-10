@@ -264,6 +264,21 @@ elif 'ssp_scaling_exps' in args.folder:
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='SSP Scaling')
+elif 'grid_ssp_exps' in args.folder:
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='SSP Scaling')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
+
+
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='SSP Scaling')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Number of Mazes')
 else:
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')

@@ -336,7 +336,10 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
         encoding_func = get_hex_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling, optimal_phi=True)
     elif args.spatial_encoding == 'grid-ssp':
         repr_dim = args.dim
-        encoding_func = get_grid_ssp_encode_func(args.dim, args.seed, scale_min=1, scale_max=2, scaling=args.ssp_scaling)
+        encoding_func = get_grid_ssp_encode_func(
+            args.dim, args.seed,
+            scale_min=args.grid_ssp_min, scale_max=args.grid_ssp_max, scaling=args.ssp_scaling
+        )
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)

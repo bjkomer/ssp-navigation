@@ -40,6 +40,8 @@ parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for 
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
 parser.add_argument('--ssp-scaling', type=float, default=1.0)
+parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum plane wave scale')
+parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--encoding-limit', type=float, default=0.0,
                     help='if set, use this upper limit to define the space that the encoding is optimized over')
