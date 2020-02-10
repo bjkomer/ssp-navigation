@@ -230,6 +230,10 @@ df['Maze ID Type'] = args.maze_id_type
 df['Maze ID Dim'] = args.maze_id_dim
 df['Tile Mazes'] = args.tile_mazes
 df['Dropout Fraction'] = args.dropout_fraction
+df['SSP Scaling'] = args.ssp_scaling
+if args.spatial_encoding == 'grid-ssp':
+    df['Grid SSP Min'] = args.grid_ssp_min
+    df['Grid SSP Max'] = args.grid_ssp_max
 
 # # Other differentiators
 # df['Number of Mazes Tested'] = args.n_mazes_tested
@@ -245,7 +249,7 @@ df['Loss Function'] = args.loss_function
 df['Learning Rate'] = args.lr
 df['Momentum'] = args.momentum
 df['Optimizer'] = args.optimizer
-df['SSP Scaling'] = args.ssp_scaling
+
 
 
 df.to_csv(args.out_file)
