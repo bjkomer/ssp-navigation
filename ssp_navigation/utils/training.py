@@ -521,7 +521,7 @@ class PolicyEvaluation(object):
 
                 sample_locs[n, 0] = loc_x
                 sample_locs[n, 1] = loc_y
-                sample_goals[n, :] = goals[maze_index, goal_index, :]
+                sample_goals[n, :] = goals[maze_index, goal_index, :] + offsets[maze_index, :]
 
                 sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
 
