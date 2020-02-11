@@ -139,6 +139,10 @@ if args.encoding_limit != 0.0:
 else:
     limit_high = data['coarse_mazes'].shape[2]
 
+    # modify the encoding limit to account for all of the environments
+    if args.tile_mazes:
+        limit_high *= int(np.ceil(np.sqrt(args.n_mazes)))
+
 encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit_high=limit_high)
 
 

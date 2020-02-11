@@ -279,6 +279,25 @@ elif 'grid_ssp_exps' in args.folder:
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='SSP Scaling')
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Number of Mazes')
+elif 'tiledmaze' in args.folder:
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Hidden Layer Size')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Hidden Layers')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Maze ID Dim')
+
+
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Hidden Layer Size')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Hidden Layers')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Maze ID Dim')
 else:
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
