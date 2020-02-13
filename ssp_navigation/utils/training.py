@@ -517,7 +517,7 @@ class PolicyEvaluation(object):
 
                 # 2D coordinate of the agent's current location
                 loc_x = xs[x_index] + offsets[maze_index, 0]
-                loc_y = ys[y_index] + offsets[maze_index, 0]
+                loc_y = ys[y_index] + offsets[maze_index, 1]
 
                 sample_locs[n, 0] = loc_x
                 sample_locs[n, 1] = loc_y
