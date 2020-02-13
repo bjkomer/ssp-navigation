@@ -56,6 +56,7 @@ parser.add_argument('--n-train-samples', type=int, default=50000, help='Number o
 parser.add_argument('--n-test-samples', type=int, default=50000, help='Number of testing samples')
 
 parser.add_argument('--tile-mazes', action='store_true', help='put all mazes into the same space')
+parser.add_argument('--connected-tiles', action='store_true', help='all mazes in the same space and connected')
 
 parser.add_argument('--hidden-size', type=int, default=512, help='Size of the hidden layer in the model')
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
@@ -80,7 +81,10 @@ parser.add_argument('--gpu', type=int, default=-1,
 
 args = parser.parse_args()
 
-dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
+if args.connected_tiles:
+    dataset_file = os.path.join(args.dataset_dir, 'connected_{}tile_dataset_gen.npz'.format(args.n_mazes))
+else:
+    dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
 
 variant_folder = '{}_{}train_{}_id_{}layer_{}units'.format(
     args.spatial_encoding, args.n_train_samples, args.maze_id_type, args.n_hidden_layers, args.hidden_size
@@ -100,11 +104,11 @@ np.random.seed(args.seed)
 # n_mazes by res by res
 fine_mazes = data['fine_mazes']
 
-# n_mazes by res by res by 2
-solved_mazes = data['solved_mazes']
+# # n_mazes by res by res by 2
+# solved_mazes = data['solved_mazes']
 
-# n_mazes by dim
-maze_sps = data['maze_sps']
+# # n_mazes by dim
+# maze_sps = data['maze_sps']
 
 # n_mazes by n_goals by 2
 goals = data['goals']
@@ -121,6 +125,7 @@ else:
 
 if args.maze_id_type == 'ssp':
     id_size = args.maze_id_dim
+    maze_sps = data['maze_sps']
 elif args.maze_id_type == 'one-hot':
     id_size = n_mazes
     # overwrite data
@@ -170,6 +175,7 @@ validation_set = PolicyValidationSet(
     data=data, dim=repr_dim, maze_sps=maze_sps, maze_indices=maze_indices, goal_indices=goal_indices, subsample=args.subsample,
     # spatial_encoding=args.spatial_encoding,
     tile_mazes=args.tile_mazes,
+    connected_tiles=args.connected_tiles,  # NOTE: viz set currently does not use this
     encoding_func=encoding_func, device=device
 )
 
@@ -177,6 +183,7 @@ trainloader, testloader = create_train_test_dataloaders(
     data=data, n_train_samples=args.n_train_samples, n_test_samples=args.n_test_samples,
     maze_sps=maze_sps, args=args, n_mazes=args.n_mazes,
     tile_mazes=args.tile_mazes,
+    connected_tiles=args.connected_tiles,
     encoding_func=encoding_func, pin_memory=pin_memory
 )
 
