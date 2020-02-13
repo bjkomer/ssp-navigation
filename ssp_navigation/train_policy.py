@@ -100,8 +100,8 @@ np.random.seed(args.seed)
 # n_mazes by res by res
 fine_mazes = data['fine_mazes']
 
-# n_mazes by res by res by 2
-solved_mazes = data['solved_mazes']
+# # n_mazes by res by res by 2
+# solved_mazes = data['solved_mazes']
 
 # n_mazes by dim
 maze_sps = data['maze_sps']
