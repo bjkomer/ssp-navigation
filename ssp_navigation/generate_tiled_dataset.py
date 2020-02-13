@@ -465,6 +465,11 @@ for maze_start in range(n_mazes):
 np.savez(
     args.output_name,
     full_maze=full_maze,
+    goals=goals,
+    fine_mazes=fine_mazes,
+    coarse_mazes=data['coarse_mazes'],
     solved_mazes=solved_mazes,
+    xs=data['xs'],
+    ys=data['ys'],
     **door_dict
 )
