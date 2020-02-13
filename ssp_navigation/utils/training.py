@@ -38,8 +38,8 @@ class PolicyValidationSet(object):
         # n_mazes by n_goals by 2
         goals = data['goals']
 
-        n_mazes = data['goal_sps'].shape[0]
-        n_goals = data['goal_sps'].shape[1]
+        n_mazes = goals.shape[0]
+        n_goals = goals.shape[1]
         # dim = data['goal_sps'].shape[2]
 
         # NOTE: this code is assuming xs as ys are the same
