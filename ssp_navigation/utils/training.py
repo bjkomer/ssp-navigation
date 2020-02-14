@@ -969,11 +969,11 @@ def create_train_test_dataloaders(
                 # max_ind = data['full_maze'].shape[0]
                 max_loc = xs[-1]*tile_len
 
-                goal_maze_index = maze_index # just an initialization to get the loop to run at least once
+                goal_maze_index = maze_index  # just an initialization to get the loop to run at least once
                 while goal_maze_index == maze_index:
                     goal_loc = np.random.uniform(0, max_loc, size=(2,))
-                    xi = int(np.floor(goal_loc[0] / max_loc))
-                    yi = int(np.floor(goal_loc[1] / max_loc))
+                    xi = int(np.floor(goal_loc[0] / xs[-1]))
+                    yi = int(np.floor(goal_loc[1] / xs[-1]))
                     goal_maze_index = xi * tile_len + yi
 
                 sample_goals[n, :] = goal_loc
