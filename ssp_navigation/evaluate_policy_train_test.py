@@ -59,6 +59,7 @@ parser.add_argument('--n-train-samples', type=int, default=100000, help='Number 
 parser.add_argument('--n-test-samples', type=int, default=100000, help='Number of test set samples to evaluate')
 
 parser.add_argument('--tile-mazes', action='store_true', help='put all mazes into the same space')
+parser.add_argument('--connected-tiles', action='store_true', help='all mazes in the same space and connected')
 
 # Tags for the pandas dataframe
 parser.add_argument('--dataset', type=str, default='', choices=['', 'blocks', 'maze', 'mixed'])
@@ -95,7 +96,10 @@ else:
     print("Generating data for:")
     print(args.out_file)
 
-dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
+if args.connected_tiles:
+    dataset_file = os.path.join(args.dataset_dir, 'connected_{}tile_dataset_gen.npz'.format(args.n_mazes))
+else:
+    dataset_file = os.path.join(args.dataset_dir, 'maze_dataset.npz')
 
 data = np.load(dataset_file)
 
@@ -211,6 +215,7 @@ validation_set = PolicyEvaluation(
     spatial_encoding=args.spatial_encoding,
     n_mazes=n_mazes,
     tile_mazes=args.tile_mazes,
+    connected_tiles=args.connected_tiles,
 )
 
 # Reset seeds here after generating data

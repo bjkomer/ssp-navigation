@@ -386,6 +386,7 @@ class PolicyEvaluation(object):
                  spatial_encoding, n_mazes, n_train_samples=100000, n_test_samples=100000, split_seed=13,
                  encoding_func=None, device=None, #cache_fname='',
                  tile_mazes=False,
+                 connected_tiles=False,
                  batch_size=64, pin_memory=False
                  ):
 
@@ -507,7 +508,33 @@ class PolicyEvaluation(object):
             else:
                 sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
 
+            # for n in range(n_samples):
+            #     # n_mazes by res by res
+            #     indices = free_spaces[start_indices[sample_indices[n]], :]
+            #     maze_index = indices[0]
+            #     x_index = indices[1]
+            #     y_index = indices[2]
+            #     goal_index = goal_indices[sample_goal_indices[n]]
+            #
+            #     # 2D coordinate of the agent's current location
+            #     loc_x = xs[x_index] + offsets[maze_index, 0]
+            #     loc_y = ys[y_index] + offsets[maze_index, 1]
+            #
+            #     sample_locs[n, 0] = loc_x
+            #     sample_locs[n, 1] = loc_y
+            #     sample_goals[n, :] = goals[maze_index, goal_index, :] + offsets[maze_index, :]
+            #
+            #     sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+            #
+            #     sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
+            #
+            #     sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
+            #
+            #     if maze_sps is not None:
+            #         sample_maze_sps[n, :] = maze_sps[maze_index]
+
             for n in range(n_samples):
+
                 # n_mazes by res by res
                 indices = free_spaces[start_indices[sample_indices[n]], :]
                 maze_index = indices[0]
@@ -521,13 +548,38 @@ class PolicyEvaluation(object):
 
                 sample_locs[n, 0] = loc_x
                 sample_locs[n, 1] = loc_y
-                sample_goals[n, :] = goals[maze_index, goal_index, :] + offsets[maze_index, :]
 
-                sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+                if connected_tiles and np.random.choice([0, 1]) == 1:
+                    # 50% chance to pick outside of the current tile if using connected tiles
+                    # overwrite the goal chosen with a new one in any continuous location not in this tile
+                    tile_len = int(np.ceil(np.sqrt(n_mazes)))
+                    # max_ind = data['full_maze'].shape[0]
+                    max_loc = xs[-1] * tile_len
 
-                sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
+                    goal_maze_index = maze_index  # just an initialization to get the loop to run at least once
+                    while goal_maze_index == maze_index:
+                        goal_loc = np.random.uniform(0, max_loc, size=(2,))
+                        xi = int(np.floor(goal_loc[0] / xs[-1]))
+                        yi = int(np.floor(goal_loc[1] / xs[-1]))
+                        goal_maze_index = xi * tile_len + yi
 
-                sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
+                    sample_goals[n, :] = goal_loc
+
+                    sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+
+                    sample_goal_sps[n, :] = encoding_func(x=goal_loc[0], y=goal_loc[1])
+
+                    sample_output_dirs[n, :] = data['{}_{}'.format(maze_index, goal_maze_index)][x_index, y_index, :]
+                else:
+                    # Regular way of doing things
+
+                    sample_goals[n, :] = goals[maze_index, goal_index, :] + offsets[maze_index, :]
+
+                    sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+
+                    sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
+
+                    sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
 
                 if maze_sps is not None:
                     sample_maze_sps[n, :] = maze_sps[maze_index]
