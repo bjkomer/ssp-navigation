@@ -113,8 +113,8 @@ fine_mazes = data['fine_mazes']
 # n_mazes by res by res by 2
 solved_mazes = data['solved_mazes']
 
-# n_mazes by dim
-maze_sps = data['maze_sps']
+# # n_mazes by dim
+# maze_sps = data['maze_sps']
 
 # n_mazes by n_goals by 2
 goals = data['goals']
@@ -131,6 +131,7 @@ else:
 
 if args.maze_id_type == 'ssp':
     id_size = args.maze_id_dim
+    maze_sps = data['maze_sps']
 elif args.maze_id_type == 'one-hot':
     id_size = n_mazes
     # overwrite data
