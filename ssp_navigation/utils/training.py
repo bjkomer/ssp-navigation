@@ -616,6 +616,25 @@ class PolicyEvaluation(object):
                     dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
                 )
 
+            if connected_tiles:
+                global_dataset = MazeDataset(
+                    maze_ssp=global_sample_maze_sps,
+                    loc_ssps=global_sample_loc_sps,
+                    goal_ssps=global_sample_goal_sps,
+                    locs=global_sample_locs,
+                    goals=global_sample_goals,
+                    direction_outputs=global_sample_output_dirs,
+                )
+
+                if test_set == 0:
+                    self.global_trainloader = torch.utils.data.DataLoader(
+                        global_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
+                    )
+                elif test_set == 1:
+                    self.global_testloader = torch.utils.data.DataLoader(
+                        global_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=pin_memory
+                    )
+
     def get_rmse(self, model):
 
         with torch.no_grad():
