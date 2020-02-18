@@ -225,11 +225,25 @@ np.random.seed(args.seed)
 
 avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = validation_set.get_rmse(model)
 
-
-df = pd.DataFrame(
-    data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test]],
-    columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE'],
-)
+# Keep track of global and local RMSE separately for connected tiles
+if args.connected_tiles:
+    global_avg_rmse_train, global_avg_angle_rmse_train, global_avg_rmse_test, global_avg_angle_rmse_test = validation_set.get_global_rmse(model)
+    df = pd.DataFrame(
+        data=[[(avg_rmse_train + global_avg_rmse_train)/2.,
+               (avg_angle_rmse_train + global_avg_angle_rmse_train)/2.,
+               (avg_rmse_test + global_avg_rmse_test)/2.,
+               (avg_angle_rmse_test + global_avg_angle_rmse_test)/2.,
+               avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test,
+               global_avg_rmse_train, global_avg_angle_rmse_train, global_avg_rmse_test, global_avg_angle_rmse_test]],
+        columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE',
+                 'Local Train RMSE', 'Local Train Angular RMSE', 'Local RMSE', 'Local Angular RMSE',
+                 'Global Train RMSE', 'Global Train Angular RMSE', 'Global RMSE', 'Global Angular RMSE'],
+    )
+else:
+    df = pd.DataFrame(
+        data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test]],
+        columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE'],
+    )
 
 df['Dimensionality'] = args.dim
 df['Hidden Layer Size'] = args.hidden_size

@@ -508,6 +508,18 @@ class PolicyEvaluation(object):
             else:
                 sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
 
+            # separate train/test loaders for the global maze in the connected tile case
+            if connected_tiles:
+                global_sample_locs = np.zeros((n_samples, 2))
+                global_sample_goals = np.zeros((n_samples, 2))
+                global_sample_loc_sps = np.zeros((n_samples, goal_sps.shape[2]))
+                global_sample_goal_sps = np.zeros((n_samples, goal_sps.shape[2]))
+                global_sample_output_dirs = np.zeros((n_samples, 2))
+                if maze_sps is None:
+                    global_sample_maze_sps = None
+                else:
+                    global_sample_maze_sps = np.zeros((n_samples, maze_sps.shape[1]))
+
             # for n in range(n_samples):
             #     # n_mazes by res by res
             #     indices = free_spaces[start_indices[sample_indices[n]], :]
@@ -549,8 +561,10 @@ class PolicyEvaluation(object):
                 sample_locs[n, 0] = loc_x
                 sample_locs[n, 1] = loc_y
 
-                if connected_tiles and np.random.choice([0, 1]) == 1:
-                    # 50% chance to pick outside of the current tile if using connected tiles
+                if connected_tiles:
+                    # use the same start location
+                    global_sample_locs[n, 0] = loc_x
+                    global_sample_locs[n, 1] = loc_y
                     # overwrite the goal chosen with a new one in any continuous location not in this tile
                     tile_len = int(np.ceil(np.sqrt(n_mazes)))
                     # max_ind = data['full_maze'].shape[0]
@@ -563,23 +577,23 @@ class PolicyEvaluation(object):
                         yi = int(np.floor(goal_loc[1] / xs[-1]))
                         goal_maze_index = xi * tile_len + yi
 
-                    sample_goals[n, :] = goal_loc
+                    global_sample_goals[n, :] = goal_loc
 
-                    sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+                    global_sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
 
-                    sample_goal_sps[n, :] = encoding_func(x=goal_loc[0], y=goal_loc[1])
+                    global_sample_goal_sps[n, :] = encoding_func(x=goal_loc[0], y=goal_loc[1])
 
-                    sample_output_dirs[n, :] = data['{}_{}'.format(maze_index, goal_maze_index)][x_index, y_index, :]
-                else:
-                    # Regular way of doing things
+                    global_sample_output_dirs[n, :] = data['{}_{}'.format(maze_index, goal_maze_index)][x_index, y_index, :]
 
-                    sample_goals[n, :] = goals[maze_index, goal_index, :] + offsets[maze_index, :]
+                # Regular way of doing things
 
-                    sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
+                sample_goals[n, :] = goals[maze_index, goal_index, :] + offsets[maze_index, :]
 
-                    sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
+                sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
 
-                    sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
+                sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
+
+                sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
 
                 if maze_sps is not None:
                     sample_maze_sps[n, :] = maze_sps[maze_index]
@@ -633,6 +647,62 @@ class PolicyEvaluation(object):
             rmse_test = 0
             angle_rmse_test = 0
             for i, data in enumerate(self.testloader):
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                # wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+
+                rmse, angle_rmse = compute_rmse(
+                    directions_pred=outputs.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=None
+                )
+
+                rmse_test += rmse
+                angle_rmse_test += angle_rmse
+                n_batches += 1
+
+            avg_rmse_test = rmse_test / n_batches
+            avg_angle_rmse_test = angle_rmse_test / n_batches
+
+        return avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test
+
+    def get_global_rmse(self, model):
+        """
+        This method should only be called for connected tiled mazes.
+        Gets the RMSE for when the goal is not in the same tile as the start
+        """
+
+        with torch.no_grad():
+            n_batches = 0
+            rmse_train = 0
+            angle_rmse_train = 0
+            for i, data in enumerate(self.global_trainloader):
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                # wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+
+                rmse, angle_rmse = compute_rmse(
+                    directions_pred=outputs.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=None
+                )
+
+                rmse_train += rmse
+                angle_rmse_train += angle_rmse
+                n_batches += 1
+
+            avg_rmse_train = rmse_train / n_batches
+            avg_angle_rmse_train = angle_rmse_train / n_batches
+
+        with torch.no_grad():
+            n_batches = 0
+            rmse_test = 0
+            angle_rmse_test = 0
+            for i, data in enumerate(self.global_testloader):
                 maze_loc_goal_ssps, directions, locs, goals = data
 
                 outputs = model(maze_loc_goal_ssps.to(self.device))
