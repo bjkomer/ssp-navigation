@@ -57,6 +57,35 @@ def encode_random_trig(x, y, dim, seed=13):
     return ret
 
 
+def encode_random_rotated_trig(x, y, dim, seed=13, freq_limit=20):
+
+    rstate = np.random.RandomState(seed=seed)
+
+    freq = rstate.uniform(low=-freq_limit, high=freq_limit, size=dim)
+    phase_rot = rstate.uniform(low=-np.pi, high=np.pi, size=dim)
+    phase_shift = rstate.uniform(low=-np.pi, high=np.pi, size=dim)
+
+    coord = np.array([[x, y]])
+
+    ret = np.zeros((dim,))
+
+    for i in range(dim):
+        rot_mat = np.array([
+            [np.cos(phase_rot[i]), -np.sin(phase_rot[i])],
+            [np.sin(phase_rot[i]), np.cos(phase_rot[i])]
+        ])
+        vec = coord @ rot_mat
+        if i % 2 == 0:
+            ret[i] = np.sin(vec[0, 0]*freq[i] + phase_shift[i])
+        else:
+            ret[i] = np.sin(vec[0, 1]*freq[i] + phase_shift[i])
+
+    # normalize
+    ret = ret / np.linalg.norm(ret)
+
+    return ret
+
+
 # Defining axes of 2D representation with respect to the 3D hexagonal one
 x_axis = np.array([1, -1, 0])
 y_axis = np.array([-1, -1, 2])
@@ -122,6 +151,7 @@ def softmax(x):
     return e_x / e_x.sum()
 
 
+# TODO: use hilbert curve to generate the centers in a 'nicer' way
 def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, use_softmax=False, rng=np.random):
     # generate PC centers
     pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
@@ -349,6 +379,9 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
     elif args.spatial_encoding == 'random-trig':
         repr_dim = args.dim
         encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed)
+    elif args.spatial_encoding == 'random-rotated-trig':
+        repr_dim = args.dim
+        encoding_func = partial(encode_random_rotated_trig, dim=args.dim, seed=args.seed)
     elif args.spatial_encoding == 'hex-trig':
         repr_dim = args.dim
         encoding_func = partial(

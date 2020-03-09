@@ -38,7 +38,7 @@ parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parame
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
-                        'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
+                        'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'learned', 'frozen-learned',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
