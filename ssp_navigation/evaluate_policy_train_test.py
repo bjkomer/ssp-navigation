@@ -263,6 +263,12 @@ if args.spatial_encoding == 'grid-ssp':
     df['Grid SSP Min'] = args.grid_ssp_min
     df['Grid SSP Max'] = args.grid_ssp_max
 
+if (args.spatial_encoding == 'pc-gauss') or (args.spatial_encoding == 'pc-dog'):
+    df['Hilbert Curve'] = args.hilbert_points
+
+if (args.spatial_encoding == 'random-trig') or (args.spatial_encoding == 'random-rotated-trig'):
+    df['Freq Limit'] = args.freq_limit
+
 # # Other differentiators
 # df['Number of Mazes Tested'] = args.n_mazes_tested
 # df['Number of Goals Tested'] = args.n_goals_tested
