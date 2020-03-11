@@ -3,6 +3,7 @@ from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make
     make_optimal_periodic_axis, get_fixed_dim_grid_axes
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
+from hilbertcurve.hilbertcurve import HilbertCurve
 import torch
 
 
@@ -151,10 +152,37 @@ def softmax(x):
     return e_x / e_x.sum()
 
 
+def hilbert_2d(limit_low, limit_high, n_samples, rng, p=6, N=2, normal_std=3):
+    """
+    Continuous sampling of a hilbert curve
+    """
+    max_dist = 2**(N*p)
+    hilbert_curve = HilbertCurve(p, N)
+    scaling_factor = np.sqrt(max_dist) - 1
+    samples = np.zeros((n_samples, 2))
+    linear_samples = np.clip(np.linspace(0, max_dist-1, n_samples) + rng.normal(0, normal_std, size=(n_samples,)), 0, max_dist - 1)
+    for i in range(n_samples):
+        # find the two grid points that surround the continuous point
+        low = np.array(hilbert_curve.coordinates_from_distance(int(np.floor(linear_samples[i]))))
+        high = np.array(hilbert_curve.coordinates_from_distance(int(np.ceil(linear_samples[i]))))
+        # compute where the continuous point should land
+        # start from the 'low' coordinate, and move in the direction of the 'high' the appropriate amount
+        vec = high - low
+        samples[i, :] = low + vec * (linear_samples[i] - np.floor(linear_samples[i]))
+
+    samples /= scaling_factor
+    samples *= (limit_high - limit_low)
+    samples += limit_low
+
+    return samples
+
 # TODO: use hilbert curve to generate the centers in a 'nicer' way
-def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, use_softmax=False, rng=np.random):
+def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, use_softmax=False, use_hilbert=True, rng=np.random):
     # generate PC centers
-    pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
+    if use_hilbert:
+        pc_centers = hilbert_2d(limit_low=limit_low, limit_high=limit_high, n_samples=dim, rng=rng)
+    else:
+        pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
 
     # TODO: make this more efficient
     def encoding_func(x, y):
@@ -169,9 +197,12 @@ def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, u
     return encoding_func
 
 
-def get_pc_dog_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, diff_sigma=0.5, use_softmax=False, rng=np.random):
+def get_pc_dog_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, diff_sigma=0.5, use_softmax=False, use_hilbert=True, rng=np.random):
     # generate PC centers
-    pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
+    if use_hilbert:
+        pc_centers = hilbert_2d(limit_low=limit_low, limit_high=limit_high, n_samples=dim, rng=rng)
+    else:
+        pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
 
     # TODO: make this more efficient
     def encoding_func(x, y):
@@ -394,14 +425,14 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
         rng = np.random.RandomState(seed=args.seed)
         encoding_func = get_pc_gauss_encoding_func(
             limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma,
-            use_softmax=False, rng=rng
+            use_softmax=False, use_hilbert=args.hilbert_points, rng=rng
         )
     elif args.spatial_encoding == 'pc-dog':
         repr_dim = args.dim
         rng = np.random.RandomState(seed=args.seed)
         encoding_func = get_pc_dog_encoding_func(
             limit_low=limit_low, limit_high=limit_high, dim=args.dim, sigma=args.pc_gauss_sigma, diff_sigma=args.pc_diff_sigma,
-            use_softmax=False, rng=rng
+            use_softmax=False, use_hilbert=args.hilbert_points, rng=rng
         )
     elif args.spatial_encoding == 'tile-coding':
         repr_dim = args.dim

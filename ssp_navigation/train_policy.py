@@ -34,10 +34,13 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
-parser.add_argument('--freq-limit', type=float, default=10, help='highest frequency of sine wave for random-trig encodings')
+parser.add_argument('--freq-limit', type=float, default=10,
+                    help='highest frequency of sine wave for random-trig encodings')
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
 parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
+parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1],
+                    help='Use the hilbert curve for generating random 2D coordinates for PC centers')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
 parser.add_argument('--ssp-scaling', type=float, default=1.0)
@@ -69,7 +72,8 @@ parser.add_argument('--momentum', type=float, default=0.9)
 parser.add_argument('--weight-histogram', action='store_true', help='Save histogram of the weights')
 parser.add_argument('--res', type=int, default=64, help='resolution of the fine maze')
 parser.add_argument('--dataset-dir', type=str, default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed')
-parser.add_argument('--no-wall-overlay', action='store_true', help='Do not use rainbow colours and wall overlay in validation images')
+parser.add_argument('--no-wall-overlay', action='store_true',
+                    help='Do not use rainbow colours and wall overlay in validation images')
 parser.add_argument('--optimizer', type=str, default='rmsprop', choices=['rmsprop', 'adam', 'sgd'])
 parser.add_argument('--variant-subfolder', type=str, default='',
                     help='Optional custom subfolder')
