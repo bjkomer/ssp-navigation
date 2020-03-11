@@ -36,11 +36,11 @@ def encode_trig(x, y, dim):
     return np.array(ret)
 
 
-def encode_random_trig(x, y, dim, seed=13):
+def encode_random_trig(x, y, dim, seed=13, freq_limit=10):
 
     rstate = np.random.RandomState(seed=seed)
 
-    freq = rstate.uniform(low=-10, high=10, size=dim)
+    freq = rstate.uniform(low=-freq_limit, high=freq_limit, size=dim)
     phase = rstate.uniform(low=-np.pi, high=np.pi, size=dim)
 
     ret = np.zeros((dim,))
@@ -378,10 +378,10 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
         encoding_func = partial(encode_trig, dim=args.dim)
     elif args.spatial_encoding == 'random-trig':
         repr_dim = args.dim
-        encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed)
+        encoding_func = partial(encode_random_trig, dim=args.dim, seed=args.seed, freq_limit=args.freq_limit)
     elif args.spatial_encoding == 'random-rotated-trig':
         repr_dim = args.dim
-        encoding_func = partial(encode_random_rotated_trig, dim=args.dim, seed=args.seed)
+        encoding_func = partial(encode_random_rotated_trig, dim=args.dim, seed=args.seed, freq_limit=args.freq_limit)
     elif args.spatial_encoding == 'hex-trig':
         repr_dim = args.dim
         encoding_func = partial(

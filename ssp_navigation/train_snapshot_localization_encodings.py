@@ -42,6 +42,7 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
+parser.add_argument('--freq-limit', type=float, default=10, help='highest frequency of sine wave for random-trig encodings')
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
 parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
