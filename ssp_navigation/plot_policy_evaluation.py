@@ -259,6 +259,9 @@ elif 'ssp_scaling_exps' in args.folder:
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='SSP Scaling')
 
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
+
 
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
@@ -298,6 +301,16 @@ elif 'tiledmaze' in args.folder:
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Hidden Layers')
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Maze ID Dim')
+elif 'hilbert' in args.folder:
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Hilbert Curve')
+
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Hilbert Curve')
 else:
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
