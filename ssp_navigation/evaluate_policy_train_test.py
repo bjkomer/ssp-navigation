@@ -20,7 +20,8 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
-                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'random', '2d', '2d-normalized', 'one-hot',
+                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp',
+                        'random', '2d', '2d-normalized', 'one-hot',
                         'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
                         'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
                         'pc-gauss', 'pc-dog', 'tile-coding'

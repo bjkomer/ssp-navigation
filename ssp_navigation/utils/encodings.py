@@ -1,6 +1,6 @@
 import numpy as np
 from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make_good_unitary, encode_random, \
-    make_optimal_periodic_axis, get_fixed_dim_grid_axes
+    make_optimal_periodic_axis, get_fixed_dim_grid_axes, power
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
 from hilbertcurve.hilbertcurve import HilbertCurve
@@ -255,6 +255,28 @@ def encode_one_hot(x, y, xs, ys):
     return arr.flatten()
 
 
+def get_independent_ssp_encode_func(dim, seed, scaling=1.0):
+    """
+    Generates an encoding function for SSPs that only takes (x,y) as input
+    :param dim: dimension of the SSP
+    :param seed: seed for randomly choosing axis vectors
+    :param scaling: scaling the resolution of the space
+    :return:
+    """
+
+    # must be divisible by two
+    assert dim % 2 == 0
+
+    rng = np.random.RandomState(seed=seed)
+    # the same axis vector is used for each dimension
+    axis_sp = make_good_unitary(dim=int(dim // 2), rng=rng)
+
+    def encode_ssp(x, y):
+        return np.concatenate([power(axis_sp, x * scaling).v, power(axis_sp, y * scaling).v])
+
+    return encode_ssp
+
+
 def get_ssp_encode_func(dim, seed, scaling=1.0):
     """
     Generates an encoding function for SSPs that only takes (x,y) as input
@@ -401,6 +423,9 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
             args.dim, args.seed,
             scale_min=args.grid_ssp_min, scale_max=args.grid_ssp_max, scaling=args.ssp_scaling
         )
+    elif args.spatial_encoding == 'ind-ssp':
+        repr_dim = args.dim
+        encoding_func = get_independent_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling)
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)

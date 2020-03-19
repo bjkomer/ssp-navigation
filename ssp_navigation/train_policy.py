@@ -28,7 +28,8 @@ parser.add_argument('--viz-period', type=int, default=50, help='number of epochs
 parser.add_argument('--val-period', type=int, default=25, help='number of epochs before a test/validation set run')
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
-                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
+                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp',
+                        'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                         'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
                         'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
                         'pc-gauss', 'pc-dog', 'tile-coding'
