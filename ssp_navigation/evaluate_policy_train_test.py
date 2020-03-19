@@ -9,6 +9,7 @@ from ssp_navigation.utils.models import MLP, LearnedEncoding
 # from spatial_semantic_pointers.utils import encode_random
 # from functools import partial
 from ssp_navigation.utils.encodings import get_encoding_function
+from sklearn.metrics import r2_score
 import nengo.spa as spa
 import pandas as pd
 import sys
@@ -228,7 +229,10 @@ validation_set = PolicyEvaluation(
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 
-avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = validation_set.get_rmse(model)
+# avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = validation_set.get_rmse(model)
+# train_r2, test_r2 = validation_set.get_r2_score(model)
+
+avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2 = validation_set.get_r2_and_rmse(model)
 
 # Keep track of global and local RMSE separately for connected tiles
 if args.connected_tiles:
@@ -239,15 +243,19 @@ if args.connected_tiles:
                (avg_rmse_test + global_avg_rmse_test)/2.,
                (avg_angle_rmse_test + global_avg_angle_rmse_test)/2.,
                avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test,
-               global_avg_rmse_train, global_avg_angle_rmse_train, global_avg_rmse_test, global_avg_angle_rmse_test]],
+               global_avg_rmse_train, global_avg_angle_rmse_train, global_avg_rmse_test, global_avg_angle_rmse_test,
+               train_r2, test_r2,
+               ]],
         columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE',
                  'Local Train RMSE', 'Local Train Angular RMSE', 'Local RMSE', 'Local Angular RMSE',
-                 'Global Train RMSE', 'Global Train Angular RMSE', 'Global RMSE', 'Global Angular RMSE'],
+                 'Global Train RMSE', 'Global Train Angular RMSE', 'Global RMSE', 'Global Angular RMSE',
+                 'Train R2', 'R2'
+                 ],
     )
 else:
     df = pd.DataFrame(
-        data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test]],
-        columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE'],
+        data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2]],
+        columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE', 'Train R2', 'R2'],
     )
 
 df['Dimensionality'] = args.dim

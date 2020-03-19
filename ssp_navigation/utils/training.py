@@ -9,6 +9,7 @@ from spatial_semantic_pointers.plots import plot_predictions, plot_predictions_v
 from ssp_navigation.utils.datasets import MazeDataset, SingleMazeDataset
 from ssp_navigation.utils.encodings import get_encoding_heatmap_vectors
 from ssp_navigation.utils.path import plot_path_predictions, plot_path_predictions_image
+from sklearn.metrics import r2_score
 import matplotlib.pyplot as plt
 import os
 
@@ -395,6 +396,10 @@ class PolicyEvaluation(object):
         # Either cpu or cuda
         self.device = device
 
+        self.batch_size = batch_size
+        self.n_train_samples = n_train_samples
+        self.n_test_samples = n_test_samples
+
         rng = np.random.RandomState(seed=split_seed)
 
         # n_mazes by res by res
@@ -686,6 +691,121 @@ class PolicyEvaluation(object):
             avg_angle_rmse_test = angle_rmse_test / n_batches
 
         return avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test
+
+    def get_r2_score(self, model):
+
+        # assert len(self.trainloader) == self.n_train_samples
+        # assert len(self.testloader) == self.n_test_samples
+
+        directions_pred = np.zeros((self.n_train_samples, 2))
+        directions_true = np.zeros((self.n_train_samples, 2))
+
+        with torch.no_grad():
+            n_batches = 0
+            for i, data in enumerate(self.trainloader):
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                directions_pred[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = outputs.detach().cpu().numpy()
+                directions_true[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = directions.detach().cpu().numpy()
+
+                n_batches += 1
+
+        train_r2 = r2_score(directions_true, directions_pred)
+
+        directions_pred = np.zeros((self.n_test_samples, 2))
+        directions_true = np.zeros((self.n_test_samples, 2))
+
+        with torch.no_grad():
+            n_batches = 0
+            for i, data in enumerate(self.testloader):
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                directions_pred[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = outputs.detach().cpu().numpy()
+                directions_true[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = directions.detach().cpu().numpy()
+
+                n_batches += 1
+
+        test_r2 = r2_score(directions_true, directions_pred)
+
+        return train_r2, test_r2
+
+    def get_r2_and_rmse(self, model):
+        """
+        Calculating both at once to be more efficient
+        TODO: have option for normalized 2D angles as well
+        """
+
+        # print(len(self.trainloader))
+        # print(self.n_train_samples)
+        #
+        # assert len(self.trainloader) == self.n_train_samples
+        # assert len(self.testloader) == self.n_test_samples
+
+        directions_pred = np.zeros((self.n_train_samples, 2))
+        directions_true = np.zeros((self.n_train_samples, 2))
+
+        with torch.no_grad():
+            n_batches = 0
+            rmse_train = 0
+            angle_rmse_train = 0
+            for i, data in enumerate(self.trainloader):
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                directions_pred[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = outputs.detach().cpu().numpy()
+                directions_true[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = directions.detach().cpu().numpy()
+
+                rmse, angle_rmse = compute_rmse(
+                    directions_pred=outputs.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=None
+                )
+
+                rmse_train += rmse
+                angle_rmse_train += angle_rmse
+                n_batches += 1
+
+            avg_rmse_train = rmse_train / n_batches
+            avg_angle_rmse_train = angle_rmse_train / n_batches
+
+        train_r2 = r2_score(directions_true, directions_pred)
+
+        directions_pred = np.zeros((self.n_test_samples, 2))
+        directions_true = np.zeros((self.n_test_samples, 2))
+
+        with torch.no_grad():
+            n_batches = 0
+            rmse_test = 0
+            angle_rmse_test = 0
+            for i, data in enumerate(self.testloader):
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                directions_pred[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = outputs.detach().cpu().numpy()
+                directions_true[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = directions.detach().cpu().numpy()
+
+                rmse, angle_rmse = compute_rmse(
+                    directions_pred=outputs.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=None
+                )
+
+                rmse_test += rmse
+                angle_rmse_test += angle_rmse
+                n_batches += 1
+
+            avg_rmse_test = rmse_test / n_batches
+            avg_angle_rmse_test = angle_rmse_test / n_batches
+
+        test_r2 = r2_score(directions_true, directions_pred)
+
+        return avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2
 
     def get_global_rmse(self, model):
         """
