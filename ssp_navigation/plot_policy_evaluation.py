@@ -336,4 +336,19 @@ try:
 except KeyError:
     print("train/test error distinction not included in dataset")
 
+if 'R2' in df.keys():
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='R2', hue='Number of Mazes')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='R2')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='R2', hue='Dimensionality')
+
+    # plt.figure()
+    # sns.barplot(data=df, x='Encoding', y='Train R2', hue='Number of Mazes')
+    # plt.figure()
+    # sns.barplot(data=df, x='Encoding', y='Train R2')
+    # plt.figure()
+    # sns.barplot(data=df, x='Encoding', y='Train R2', hue='Dimensionality')
+
 plt.show()
