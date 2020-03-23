@@ -176,13 +176,21 @@ def hilbert_2d(limit_low, limit_high, n_samples, rng, p=6, N=2, normal_std=3):
 
     return samples
 
-# TODO: use hilbert curve to generate the centers in a 'nicer' way
-def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, use_softmax=False, use_hilbert=True, rng=np.random):
+def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, use_softmax=False, use_hilbert=1, rng=np.random):
     # generate PC centers
-    if use_hilbert:
-        pc_centers = hilbert_2d(limit_low=limit_low, limit_high=limit_high, n_samples=dim, rng=rng)
-    else:
+    if use_hilbert == 0:
+        # uniformly random centers
         pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
+    elif use_hilbert == 1:
+        # hilbert points
+        pc_centers = hilbert_2d(limit_low=limit_low, limit_high=limit_high, n_samples=dim, rng=rng)
+    elif use_hilbert == 2:
+        # evenly spaced centers on a grid
+        # dimensionality must be a perfect square for this option
+        side_len = int(np.sqrt(dim))
+        assert dim == side_len**2
+        vx, vy = np.meshgrid(np.linspace(limit_low, limit_high, side_len), np.linspace(limit_low, limit_high, side_len))
+        #pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
 
     # TODO: make this more efficient
     def encoding_func(x, y):
