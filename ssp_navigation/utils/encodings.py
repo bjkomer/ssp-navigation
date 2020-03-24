@@ -192,6 +192,33 @@ def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, u
         vx, vy = np.meshgrid(np.linspace(limit_low, limit_high, side_len), np.linspace(limit_low, limit_high, side_len))
         pc_centers = np.vstack([vx.flatten(), vy.flatten()]).T
         assert (pc_centers.shape[0] == dim) and (pc_centers.shape[1] == 2)
+    elif use_hilbert == 3:
+        # hexagonally spaced centers on a grid
+        # construct using two offset grids
+        half_dim = dim / 2.
+        res_y = np.sqrt(half_dim * np.sqrt(3)/3.)
+        res_x = half_dim / res_y
+        # need these to be integers, err on the side of too many points and trim after
+        res_y = int(np.ceil(res_y))
+        res_x = int(np.ceil(res_x))
+
+        xs = np.linspace(limit_low, limit_high, res_x)
+        ys = np.linspace(limit_low, limit_high, res_y)
+
+        vx, vy = np.meshgrid(xs, ys)
+
+        # scale the sides of each hexagon
+        # in the y direction, hexagon centers are 3 units apart
+        # in the x direction, hexagon centers are sqrt(3) units apart
+        scale = (ys[1] - ys[0]) / 3.
+
+        pc_centers_a = np.vstack([vx.flatten(), vy.flatten()]).T
+        pc_centers_b = pc_centers_a + np.array([np.sqrt(3)/2., 3./2.]) * scale
+
+        # place the two offset grids together, and cut off excess points so that there are only 'dim' centers
+        pc_centers = np.concatenate([pc_centers_a, pc_centers_b], axis=0)[:dim, :]
+
+
 
     # TODO: make this more efficient
     def encoding_func(x, y):

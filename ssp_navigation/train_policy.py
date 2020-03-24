@@ -40,8 +40,8 @@ parser.add_argument('--freq-limit', type=float, default=10,
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
 parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
-parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1, 2],
-                    help='how pc centers are determined. 0: random uniform. 1: hilbert curve. 2: evenly spaced grid')
+parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1, 2, 3],
+                    help='pc centers. 0: random uniform. 1: hilbert curve. 2: evenly spaced grid. 3: hex grid')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
 parser.add_argument('--ssp-scaling', type=float, default=1.0)
