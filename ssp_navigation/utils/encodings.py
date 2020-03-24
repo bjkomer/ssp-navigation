@@ -190,7 +190,8 @@ def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, u
         side_len = int(np.sqrt(dim))
         assert dim == side_len**2
         vx, vy = np.meshgrid(np.linspace(limit_low, limit_high, side_len), np.linspace(limit_low, limit_high, side_len))
-        #pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
+        pc_centers = np.vstack([vx.flatten(), vy.flatten()]).T
+        assert (pc_centers.shape[0] == dim) and (pc_centers.shape[1] == 2)
 
     # TODO: make this more efficient
     def encoding_func(x, y):
