@@ -210,7 +210,7 @@ mse_criterion = nn.MSELoss()
 
 if args.optimizer == 'sgd':
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-if args.optimizer == 'rmsprop':
+elif args.optimizer == 'rmsprop':
     optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.momentum)
 elif args.optimizer == 'adam':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
