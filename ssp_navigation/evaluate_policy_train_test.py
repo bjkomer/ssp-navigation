@@ -24,7 +24,7 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
                         'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp',
                         'random', '2d', '2d-normalized', 'one-hot',
                         'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
-                        'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
+                        'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized', 'legendre',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')

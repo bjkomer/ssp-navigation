@@ -4,6 +4,7 @@ from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
 from hilbertcurve.hilbertcurve import HilbertCurve
+from scipy.special import legendre
 import torch
 
 
@@ -397,6 +398,39 @@ def get_one_hot_encode_func(dim=512, limit_low=0, limit_high=13):
     return encoding_func
 
 
+def get_legendre_encode_func(dim=512, limit_low=0, limit_high=13):
+    """
+    Encoding a 2D point by expanding the dimensionality through the legendre polynomials
+    (starting with order 1, ignoring the constant)
+    """
+
+    half_dim = int(dim // 2)
+
+    # dim must be evenly divisible by 2 for this encoding
+    assert half_dim * 2 == dim
+
+    # set up legendre polynomial functions
+    poly = []
+    for i in range(half_dim):
+        poly.append(legendre(i + 1))
+
+    domain = limit_high - limit_low
+
+    def encoding_func(x, y):
+
+        # shift x and y to be between -1 and 1 before going through the polynomials
+        xn = (x / domain) * 2 - 1
+        yn = (x / domain) * 2 - 1
+        ret = np.zeros((dim,))
+        for i in range(half_dim):
+            ret[i] = poly[i](xn)
+            ret[i + half_dim] = poly[i](yn)
+
+        return ret
+
+    return encoding_func
+
+
 def encoding_func_from_model(path, dim=512):
 
     encoding_layer = EncodingLayer(input_size=2, encoding_size=dim)
@@ -502,6 +536,9 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
             limit_low=limit_low, limit_high=limit_high,
             dim=args.dim, n_tiles=args.n_tiles, n_bins=args.n_bins, rng=rng
         )
+    elif args.spatial_encoding == 'legendre':
+        repr_dim = args.dim
+        encoding_func = get_legendre_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
     elif args.spatial_encoding == 'random-proj':
         repr_dim = args.dim
         encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)
