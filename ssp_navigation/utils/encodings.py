@@ -419,8 +419,8 @@ def get_legendre_encode_func(dim=512, limit_low=0, limit_high=13):
     def encoding_func(x, y):
 
         # shift x and y to be between -1 and 1 before going through the polynomials
-        xn = (x / domain) * 2 - 1
-        yn = (x / domain) * 2 - 1
+        xn = ((x - limit_low) / domain) * 2 - 1
+        yn = ((y - limit_low) / domain) * 2 - 1
         ret = np.zeros((dim,))
         for i in range(half_dim):
             ret[i] = poly[i](xn)
