@@ -117,6 +117,13 @@ if args.best_epoch:
 # df = df[df['Number of Mazes'] == 5]
 # df = df[df['Number of Mazes'] == 64]
 
+# df = df[df['Hilbert Curve'] != 0]
+# df = df[df['Freq Limit'] != 20.]
+# df = df[df['Freq Limit'] != 15.]
+# df = df[df['Freq Limit'] != 10.]
+# df = df[df['Freq Limit'] != 7.5]
+# df = df[df['Freq Limit'] != 5.]
+
 if False:
     # TODO: sort these out
     # df = df[df['Dimensionality'] == 128]
@@ -311,6 +318,16 @@ elif 'hilbert' in args.folder:
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Hilbert Curve')
+elif 'trig_freq' in args.folder:
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Freq Limit')
+
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE')
+    plt.figure()
+    sns.barplot(data=df, x='Encoding', y='Train Angular RMSE', hue='Freq Limit')
 else:
     plt.figure()
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
