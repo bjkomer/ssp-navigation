@@ -37,8 +37,9 @@ parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parame
 
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
-                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'random', '2d', '2d-normalized', 'one-hot',
-                        'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
+                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp',
+                        'random', '2d', '2d-normalized', 'one-hot',
+                        'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'legendre',
                         'learned', 'frozen-learned',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
@@ -48,8 +49,8 @@ parser.add_argument('--freq-limit', type=float, default=10,
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
 parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
-parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1],
-                    help='Use the hilbert curve for generating random 2D coordinates for PC centers')
+parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1, 2, 3],
+                    help='pc centers. 0: random uniform. 1: hilbert curve. 2: evenly spaced grid. 3: hex grid')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
 parser.add_argument('--ssp-scaling', type=float, default=1.0)
@@ -209,7 +210,7 @@ mse_criterion = nn.MSELoss()
 
 if args.optimizer == 'sgd':
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-if args.optimizer == 'rmsprop':
+elif args.optimizer == 'rmsprop':
     optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.momentum)
 elif args.optimizer == 'adam':
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)

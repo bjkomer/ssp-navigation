@@ -1,9 +1,10 @@
 import numpy as np
 from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make_good_unitary, encode_random, \
-    make_optimal_periodic_axis, get_fixed_dim_grid_axes
+    make_optimal_periodic_axis, get_fixed_dim_grid_axes, power
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
 from hilbertcurve.hilbertcurve import HilbertCurve
+from scipy.special import legendre
 import torch
 
 
@@ -176,13 +177,49 @@ def hilbert_2d(limit_low, limit_high, n_samples, rng, p=6, N=2, normal_std=3):
 
     return samples
 
-# TODO: use hilbert curve to generate the centers in a 'nicer' way
-def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, use_softmax=False, use_hilbert=True, rng=np.random):
+def get_pc_gauss_encoding_func(limit_low=0, limit_high=1, dim=512, sigma=0.25, use_softmax=False, use_hilbert=1, rng=np.random):
     # generate PC centers
-    if use_hilbert:
-        pc_centers = hilbert_2d(limit_low=limit_low, limit_high=limit_high, n_samples=dim, rng=rng)
-    else:
+    if use_hilbert == 0:
+        # uniformly random centers
         pc_centers = rng.uniform(low=limit_low, high=limit_high, size=(dim, 2))
+    elif use_hilbert == 1:
+        # hilbert points
+        pc_centers = hilbert_2d(limit_low=limit_low, limit_high=limit_high, n_samples=dim, rng=rng)
+    elif use_hilbert == 2:
+        # evenly spaced centers on a grid
+        # dimensionality must be a perfect square for this option
+        side_len = int(np.sqrt(dim))
+        assert dim == side_len**2
+        vx, vy = np.meshgrid(np.linspace(limit_low, limit_high, side_len), np.linspace(limit_low, limit_high, side_len))
+        pc_centers = np.vstack([vx.flatten(), vy.flatten()]).T
+        assert (pc_centers.shape[0] == dim) and (pc_centers.shape[1] == 2)
+    elif use_hilbert == 3:
+        # hexagonally spaced centers on a grid
+        # construct using two offset grids
+        half_dim = dim / 2.
+        res_y = np.sqrt(half_dim * np.sqrt(3)/3.)
+        res_x = half_dim / res_y
+        # need these to be integers, err on the side of too many points and trim after
+        res_y = int(np.ceil(res_y))
+        res_x = int(np.ceil(res_x))
+
+        xs = np.linspace(limit_low, limit_high, res_x)
+        ys = np.linspace(limit_low, limit_high, res_y)
+
+        vx, vy = np.meshgrid(xs, ys)
+
+        # scale the sides of each hexagon
+        # in the y direction, hexagon centers are 3 units apart
+        # in the x direction, hexagon centers are sqrt(3) units apart
+        scale = (ys[1] - ys[0]) / 3.
+
+        pc_centers_a = np.vstack([vx.flatten(), vy.flatten()]).T
+        pc_centers_b = pc_centers_a + np.array([np.sqrt(3)/2., 3./2.]) * scale
+
+        # place the two offset grids together, and cut off excess points so that there are only 'dim' centers
+        pc_centers = np.concatenate([pc_centers_a, pc_centers_b], axis=0)[:dim, :]
+
+
 
     # TODO: make this more efficient
     def encoding_func(x, y):
@@ -253,6 +290,28 @@ def encode_one_hot(x, y, xs, ys):
     arr[indx, indy] = 1
 
     return arr.flatten()
+
+
+def get_independent_ssp_encode_func(dim, seed, scaling=1.0):
+    """
+    Generates an encoding function for SSPs that only takes (x,y) as input
+    :param dim: dimension of the SSP
+    :param seed: seed for randomly choosing axis vectors
+    :param scaling: scaling the resolution of the space
+    :return:
+    """
+
+    # must be divisible by two
+    assert dim % 2 == 0
+
+    rng = np.random.RandomState(seed=seed)
+    # the same axis vector is used for each dimension
+    axis_sp = make_good_unitary(dim=int(dim // 2), rng=rng)
+
+    def encode_ssp(x, y):
+        return np.concatenate([power(axis_sp, x * scaling).v, power(axis_sp, y * scaling).v])
+
+    return encode_ssp
 
 
 def get_ssp_encode_func(dim, seed, scaling=1.0):
@@ -339,6 +398,39 @@ def get_one_hot_encode_func(dim=512, limit_low=0, limit_high=13):
     return encoding_func
 
 
+def get_legendre_encode_func(dim=512, limit_low=0, limit_high=13):
+    """
+    Encoding a 2D point by expanding the dimensionality through the legendre polynomials
+    (starting with order 1, ignoring the constant)
+    """
+
+    half_dim = int(dim // 2)
+
+    # dim must be evenly divisible by 2 for this encoding
+    assert half_dim * 2 == dim
+
+    # set up legendre polynomial functions
+    poly = []
+    for i in range(half_dim):
+        poly.append(legendre(i + 1))
+
+    domain = limit_high - limit_low
+
+    def encoding_func(x, y):
+
+        # shift x and y to be between -1 and 1 before going through the polynomials
+        xn = ((x - limit_low) / domain) * 2 - 1
+        yn = ((y - limit_low) / domain) * 2 - 1
+        ret = np.zeros((dim,))
+        for i in range(half_dim):
+            ret[i] = poly[i](xn)
+            ret[i + half_dim] = poly[i](yn)
+
+        return ret
+
+    return encoding_func
+
+
 def encoding_func_from_model(path, dim=512):
 
     encoding_layer = EncodingLayer(input_size=2, encoding_size=dim)
@@ -401,6 +493,9 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
             args.dim, args.seed,
             scale_min=args.grid_ssp_min, scale_max=args.grid_ssp_max, scaling=args.ssp_scaling
         )
+    elif args.spatial_encoding == 'ind-ssp':
+        repr_dim = args.dim
+        encoding_func = get_independent_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling)
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
@@ -441,6 +536,9 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
             limit_low=limit_low, limit_high=limit_high,
             dim=args.dim, n_tiles=args.n_tiles, n_bins=args.n_bins, rng=rng
         )
+    elif args.spatial_encoding == 'legendre':
+        repr_dim = args.dim
+        encoding_func = get_legendre_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
     elif args.spatial_encoding == 'random-proj':
         repr_dim = args.dim
         encoding_func = partial(encode_projection, dim=args.dim, seed=args.seed)

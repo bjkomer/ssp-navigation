@@ -9,6 +9,7 @@ from ssp_navigation.utils.models import MLP, LearnedEncoding
 # from spatial_semantic_pointers.utils import encode_random
 # from functools import partial
 from ssp_navigation.utils.encodings import get_encoding_function
+from sklearn.metrics import r2_score
 import nengo.spa as spa
 import pandas as pd
 import sys
@@ -20,9 +21,10 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
-                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'random', '2d', '2d-normalized', 'one-hot',
+                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp',
+                        'random', '2d', '2d-normalized', 'one-hot',
                         'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
-                        'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
+                        'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized', 'legendre',
                         'pc-gauss', 'pc-dog', 'tile-coding'
                     ],
                     help='coordinate encoding for agent location and goal')
@@ -31,8 +33,8 @@ parser.add_argument('--freq-limit', type=float, default=10,
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
 parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
 parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
-parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1],
-                    help='Use the hilbert curve for generating random 2D coordinates for PC centers')
+parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1, 2, 3],
+                    help='pc centers. 0: random uniform. 1: hilbert curve. 2: evenly spaced grid. 3: hex grid')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
 parser.add_argument('--ssp-scaling', type=float, default=1.0)
@@ -227,7 +229,10 @@ validation_set = PolicyEvaluation(
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 
-avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = validation_set.get_rmse(model)
+# avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = validation_set.get_rmse(model)
+# train_r2, test_r2 = validation_set.get_r2_score(model)
+
+avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2 = validation_set.get_r2_and_rmse(model)
 
 # Keep track of global and local RMSE separately for connected tiles
 if args.connected_tiles:
@@ -238,15 +243,19 @@ if args.connected_tiles:
                (avg_rmse_test + global_avg_rmse_test)/2.,
                (avg_angle_rmse_test + global_avg_angle_rmse_test)/2.,
                avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test,
-               global_avg_rmse_train, global_avg_angle_rmse_train, global_avg_rmse_test, global_avg_angle_rmse_test]],
+               global_avg_rmse_train, global_avg_angle_rmse_train, global_avg_rmse_test, global_avg_angle_rmse_test,
+               train_r2, test_r2,
+               ]],
         columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE',
                  'Local Train RMSE', 'Local Train Angular RMSE', 'Local RMSE', 'Local Angular RMSE',
-                 'Global Train RMSE', 'Global Train Angular RMSE', 'Global RMSE', 'Global Angular RMSE'],
+                 'Global Train RMSE', 'Global Train Angular RMSE', 'Global RMSE', 'Global Angular RMSE',
+                 'Train R2', 'R2'
+                 ],
     )
 else:
     df = pd.DataFrame(
-        data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test]],
-        columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE'],
+        data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2]],
+        columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE', 'Train R2', 'R2'],
     )
 
 df['Dimensionality'] = args.dim

@@ -133,7 +133,9 @@ def main():
     parser = argparse.ArgumentParser('Train a network to clean up a noisy spatial semantic pointer')
 
     parser.add_argument('--loss-function', type=str, default='cosine',
-                        choices=['cosine', 'mse', 'combined', 'alternating', 'scaled'])
+                        choices=['cosine', 'mse', 'combined', 'scaled'])
+    parser.add_argument('--noise-type', type=str, default='memory', choices=['memory', 'gaussian', 'both'])
+    parser.add_argument('--sigma', type=float, default=0.5, help='sigma on the gaussian noise if noise-type==gaussian')
     parser.add_argument('--spatial-encoding', type=str, default='ssp',
                         choices=[
                             'ssp', 'hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
@@ -166,8 +168,8 @@ def main():
     parser.add_argument('--logdir', type=str, default='trained_models/ssp_cleanup',
                         help='Directory for saved model and tensorboard log')
     parser.add_argument('--load-model', type=str, default='', help='Optional model to continue training from')
-    parser.add_argument('--name', type=str, default='',
-                        help='Name of output folder within logdir. Will use current date and time if blank')
+    # parser.add_argument('--name', type=str, default='',
+    #                     help='Name of output folder within logdir. Will use current date and time if blank')
     parser.add_argument('--weight-histogram', action='store_true', help='Save histograms of the weights if set')
     parser.add_argument('--optimizer', type=str, default='adam', choices=['rmsprop', 'adam', 'sgd'])
 
@@ -188,6 +190,7 @@ def main():
     rng = np.random.RandomState(seed=args.seed)
     # x_axis_sp = make_good_unitary(args.dim, rng=rng)
     # y_axis_sp = make_good_unitary(args.dim, rng=rng)
+
 
     limit_low = args.limits[0]
     limit_high = args.limits[1]
@@ -221,6 +224,12 @@ def main():
             # x_axis_vec=x_axis_sp.v,
             # y_axis_vec=x_axis_sp.v,
         )
+
+    # Add gaussian noise if required
+    if args.noise_type == 'gaussian':
+        noisy_ssps = clean_ssps + np.random.normal(loc=0, scale=args.sigma, size=noisy_ssps.shape)
+    elif args.noise_type == 'both':
+        noisy_ssps += np.random.normal(loc=0, scale=args.sigma, size=noisy_ssps.shape)
 
     n_samples = clean_ssps.shape[0]
     n_train = int(args.train_fraction * n_samples)
@@ -260,7 +269,7 @@ def main():
 
     if args.optimizer == 'sgd':
         optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-    if args.optimizer == 'rmsprop':
+    elif args.optimizer == 'rmsprop':
         optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.momentum)
     elif args.optimizer == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
