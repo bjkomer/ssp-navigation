@@ -549,3 +549,33 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
         raise NotImplementedError
 
     return encoding_func, repr_dim
+
+def add_encoding_params(parser):
+    parser.add_argument('--spatial-encoding', type=str, default='hex-ssp',
+                        choices=[
+                            'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp',
+                            'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
+                            'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'legendre',
+                            'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
+                            'pc-gauss', 'pc-dog', 'tile-coding'
+                        ],
+                        help='coordinate encoding for agent location and goal')
+    parser.add_argument('--freq-limit', type=float, default=10,
+                        help='highest frequency of sine wave for random-trig encodings')
+    parser.add_argument('--hex-freq-coef', type=float, default=2.5,
+                        help='constant to scale frequencies by for hex-trig')
+    parser.add_argument('--pc-gauss-sigma', type=float, default=0.75, help='sigma for the gaussians')
+    parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
+    parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1, 2, 3],
+                        help='pc centers. 0: random uniform. 1: hilbert curve. 2: evenly spaced grid. 3: hex grid')
+    parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
+    parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
+    parser.add_argument('--ssp-scaling', type=float, default=1.0)
+    parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum plane wave scale')
+    parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
+
+    parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the semantic pointers')
+    parser.add_argument('--limit', type=float, default=5, help='The limits of the space')
+    parser.add_argument('--seed', type=int, default=13)
+
+    return parser
