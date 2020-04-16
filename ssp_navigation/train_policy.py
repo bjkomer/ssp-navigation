@@ -5,6 +5,7 @@ import numpy as np
 import argparse
 import os
 import json
+import sys
 from tensorboardX import SummaryWriter
 from datetime import datetime
 from ssp_navigation.utils.models import FeedForward, MLP, LearnedEncoding
@@ -100,6 +101,11 @@ if args.variant_subfolder != '':
     variant_folder = os.path.join(args.variant_subfolder, variant_folder)
 
 logdir = os.path.join(args.dataset_dir, 'policy', variant_folder)
+
+if os.path.exists(logdir):
+    print("Spipping, output already exists for:")
+    print(logdir)
+    sys.exit(0)
 
 data = np.load(dataset_file)
 
