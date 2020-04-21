@@ -4,6 +4,7 @@ from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
 from hilbertcurve.hilbertcurve import HilbertCurve
+import nengo_spa as spa
 from scipy.special import legendre
 import torch
 
@@ -375,6 +376,54 @@ def get_grid_ssp_encode_func(dim, seed, scale_min=1.0, scale_max=2.0, scaling=1.
     return encode_ssp
 
 
+def get_orthogonal_nd_proj_ssp(dim, seed, scaling=1.0, phi=np.pi / 2.):
+    rng = np.random.RandomState(seed)
+    angle = rng.uniform(0, 2*np.pi)
+
+    # maximum possible value for n
+    n = (dim - 1) // 2
+    # make an axis for each n
+    axes_f = np.zeros((n, dim), dtype='Complex64')
+    axes = np.zeros((n, dim,))
+    axis_sps = []
+    for k in range(n):
+        axes_f[k, :] = 1
+        axes_f[k, k + 1] = np.exp(1.j * phi)
+        axes_f[k, -(k + 1)] = np.conj(axes_f[k, k + 1])
+        axes[k, :] = np.fft.ifft(axes_f[k, :]).real
+
+        assert np.allclose(np.abs(axes_f[k, :]), 1)
+        assert np.allclose(np.fft.fft(axes[k, :]), axes_f[k, :])
+        assert np.allclose(np.linalg.norm(axes[k, :]), 1)
+
+        axis_sps.append(spa.SemanticPointer(data=axes[k, :]))
+
+    points_nd = np.eye(n) * np.sqrt(n)
+    # points in 2D that will correspond to each axis, plus one at zero
+    points_2d = np.zeros((n, 2))
+    thetas = np.linspace(0, 2 * np.pi, n + 1)[:-1] + angle
+    for i, theta in enumerate(thetas):
+        points_2d[i, 0] = np.cos(theta)
+        points_2d[i, 1] = np.sin(theta)
+
+    transform_mat = np.linalg.lstsq(points_2d, points_nd)
+
+    x_axis = transform_mat[0][0, :]  # / transform_mat[3][0]
+    y_axis = transform_mat[0][1, :]  # / transform_mat[3][1]
+    sv = transform_mat[3][0]
+
+    X = power(axis_sps[0], x_axis[0])
+    Y = power(axis_sps[0], y_axis[0])
+    for i in range(1, n):
+        X *= power(axis_sps[i], x_axis[i])
+        Y *= power(axis_sps[i], y_axis[i])
+
+    def encode_ssp(x, y):
+        return encode_point(x * scaling * sv, y * scaling * sv, X, Y).v
+
+    return encode_ssp
+
+
 def get_one_hot_encode_func(dim=512, limit_low=0, limit_high=13):
 
     optimal_side = int(np.floor(np.sqrt(dim)))
@@ -496,6 +545,13 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
     elif args.spatial_encoding == 'ind-ssp':
         repr_dim = args.dim
         encoding_func = get_independent_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling)
+    elif args.spatial_encoding == 'orth-proj-ssp':
+        repr_dim = args.dim
+        if hasattr(args, 'phi'):
+            phi = args.phi * np.pi
+        else:
+            phi = np.pi / 2.
+        encoding_func = get_orthogonal_nd_proj_ssp(args.dim, args.seed, scaling=args.ssp_scaling, phi=phi)
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
@@ -553,7 +609,7 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
 def add_encoding_params(parser):
     parser.add_argument('--spatial-encoding', type=str, default='hex-ssp',
                         choices=[
-                            'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp',
+                            'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
                             'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                             'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'legendre',
                             'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
@@ -573,6 +629,7 @@ def add_encoding_params(parser):
     parser.add_argument('--ssp-scaling', type=float, default=1.0)
     parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum plane wave scale')
     parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
+    parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
 
     parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the semantic pointers')
     parser.add_argument('--limit', type=float, default=5, help='The limits of the space')

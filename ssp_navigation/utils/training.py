@@ -496,12 +496,16 @@ class PolicyEvaluation(object):
 
             if test_set == 0:
                 # first 75% is train set
-                sample_indices = np.random.randint(low=0, high=n_train_start_split, size=n_samples)
-                sample_goal_indices = np.random.randint(low=0, high=n_train_goal_split, size=n_samples)
+                # sample_indices = np.random.randint(low=0, high=n_train_start_split, size=n_samples)
+                # sample_goal_indices = np.random.randint(low=0, high=n_train_goal_split, size=n_samples)
+                sample_indices = rng.randint(low=0, high=n_train_start_split, size=n_samples)
+                sample_goal_indices = rng.randint(low=0, high=n_train_goal_split, size=n_samples)
             elif test_set == 1:
                 # last 25% is test set
-                sample_indices = np.random.randint(low=n_free_spaces - n_pure_start_split, high=n_free_spaces, size=n_samples)
-                sample_goal_indices = np.random.randint(low=n_goals - n_pure_goal_split, high=n_goals, size=n_samples)
+                # sample_indices = np.random.randint(low=n_free_spaces - n_pure_start_split, high=n_free_spaces, size=n_samples)
+                # sample_goal_indices = np.random.randint(low=n_goals - n_pure_goal_split, high=n_goals, size=n_samples)
+                sample_indices = rng.randint(low=n_free_spaces - n_pure_start_split, high=n_free_spaces, size=n_samples)
+                sample_goal_indices = rng.randint(low=n_goals - n_pure_goal_split, high=n_goals, size=n_samples)
 
             sample_locs = np.zeros((n_samples, 2))
             sample_goals = np.zeros((n_samples, 2))
