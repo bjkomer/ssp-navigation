@@ -174,7 +174,7 @@ n_mazes = data['coarse_mazes'].shape[0]
 # heatmap_vectors = get_heatmap_vectors(xs, ys, x_axis_vec, y_axis_vec)
 heatmap_vectors = get_encoding_heatmap_vectors(xs, ys, args.dim, encoding_func)
 
-n_samples = args.n_samples
+# n_samples = args.n_samples
 batch_size = args.batch_size
 n_epochs = args.n_epochs
 
@@ -228,8 +228,8 @@ trainloader, testloader = snapshot_localization_encoding_train_test_loaders(
     encoding_func=encoding_func,
     encoding_dim=args.dim,
     maze_sps=maze_sps,
-    n_train_samples=n_samples,
-    n_test_samples=n_samples,
+    n_train_samples=args.n_train_samples,
+    n_test_samples=args.n_test_samples,
     batch_size=batch_size,
     n_mazes_to_use=args.n_mazes,
 )
