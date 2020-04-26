@@ -22,12 +22,14 @@ import nengo.spa as spa
 parser = argparse.ArgumentParser('Run 2D supervised localization experiment with snapshots using pytorch')
 
 parser.add_argument('--seed', type=int, default=13)
-parser.add_argument('--n-epochs', type=int, default=250)
-parser.add_argument('--n-samples', type=int, default=10000)
+parser.add_argument('--n-epochs', type=int, default=100)
+# parser.add_argument('--n-samples', type=int, default=10000)
+parser.add_argument('--n-train-samples', type=int, default=50000)
+parser.add_argument('--n-test-samples', type=int, default=10000)
 # parser.add_argument('--encoding', type=str, default='ssp', choices=['ssp', '2d', 'pc'])
-parser.add_argument('--eval-period', type=int, default=50)
+parser.add_argument('--eval-period', type=int, default=25)
 parser.add_argument('--load-saved-model', type=str, default='', help='Saved model to load from')
-parser.add_argument('--loss-function', type=str, default='cosine',
+parser.add_argument('--loss-function', type=str, default='combined',
                     choices=['cosine', 'mse', 'combined', 'alternating', 'scaled'])
 parser.add_argument('--n-mazes', type=int, default=0, help='number of mazes to use. Set to 0 to use all in the dataset')
 parser.add_argument('--batch-size', type=int, default=32)
@@ -37,7 +39,7 @@ parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parame
 
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
-                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp',
+                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
                         'random', '2d', '2d-normalized', 'one-hot',
                         'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'legendre',
                         'learned', 'frozen-learned',
@@ -47,8 +49,8 @@ parser.add_argument('--spatial-encoding', type=str, default='ssp',
 parser.add_argument('--freq-limit', type=float, default=10,
                     help='highest frequency of sine wave for random-trig encodings')
 parser.add_argument('--hex-freq-coef', type=float, default=2.5, help='constant to scale frequencies by for hex-trig')
-parser.add_argument('--pc-gauss-sigma', type=float, default=0.25, help='sigma for the gaussians')
-parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
+parser.add_argument('--pc-gauss-sigma', type=float, default=0.75, help='sigma for the gaussians')
+parser.add_argument('--pc-diff-sigma', type=float, default=1.5, help='sigma for subtracted gaussian in DoG')
 parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1, 2, 3],
                     help='pc centers. 0: random uniform. 1: hilbert curve. 2: evenly spaced grid. 3: hex grid')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
@@ -56,6 +58,7 @@ parser.add_argument('--n-bins', type=int, default=0, help='number of bins for ti
 parser.add_argument('--ssp-scaling', type=float, default=1.0)
 parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum plane wave scale')
 parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
+parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
 parser.add_argument('--encoding-limit', type=float, default=0.0,
                     help='if set, use this upper limit to define the space that the encoding is optimized over')
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of encoding')
@@ -66,6 +69,9 @@ parser.add_argument('--maze-id-type', type=str, choices=['ssp', 'one-hot', 'rand
                          'random-sp: each maze given a unique random SP as an ID')
 parser.add_argument('--maze-id-dim', type=int, default=256, help='Dimensionality for the Maze ID')
 
+parser.add_argument('--tile-mazes', action='store_true', help='put all mazes into the same space')
+parser.add_argument('--connected-tiles', action='store_true', help='all mazes in the same space and connected')
+
 parser.add_argument('--optimizer', type=str, default='adam', choices=['rmsprop', 'adam', 'sgd'])
 
 parser.add_argument('--hidden-size', type=int, default=512)
@@ -73,7 +79,7 @@ parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hi
 parser.add_argument('--grad-clip-thresh', type=float, default=1e-5, help='Gradient clipping threshold')
 
 parser.add_argument('--dataset-dir', type=str,
-                    default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed/36sensors_360fov')
+                    default='datasets/mixed_style_100mazes_100goals_64res_13size_13seed/36sensors_360fov')
 parser.add_argument('--variant-subfolder', type=str, default='',
                     help='Optional custom subfolder')
 parser.add_argument('--gpu', type=int, default=-1,
@@ -88,7 +94,7 @@ variant_folder = '{}_{}dim_{}layer_{}units'.format(
 )
 
 if args.variant_subfolder != '':
-    variant_folder = os.path.join(variant_folder, args.variant_subfolder)
+    variant_folder = os.path.join(args.variant_subfolder, variant_folder)
 
 logdir = os.path.join(args.dataset_dir, 'snapshot_network', variant_folder)
 
@@ -233,7 +239,7 @@ validation_set = SnapshotValidationSet(
     heatmap_vectors=heatmap_vectors,
     xs=xs,
     ys=ys,
-    spatial_encoding='ssp',
+    spatial_encoding='ssp',  # Note: this is actually generic and represents any non-2d encoding
 )
 
 params = vars(args)

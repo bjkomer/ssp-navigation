@@ -1568,6 +1568,11 @@ class SnapshotValidationSet(object):
                 print("copying ground truth locations")
                 coords[:, :] = ssp_outputs.detach().numpy()[:, :]
 
+            # Get a measure of error in the output coordinate space
+            coord_rmse = np.sqrt((np.linalg.norm(predictions - coords, axis=1)**2).mean())
+            writer.add_scalar('test_coord_rmse', coord_rmse, epoch)
+
+
             fig_pred, ax_pred = plt.subplots()
             fig_truth, ax_truth = plt.subplots()
 
