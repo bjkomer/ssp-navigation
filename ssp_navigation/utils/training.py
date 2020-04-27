@@ -1646,7 +1646,7 @@ class LocalizationSnapshotDataset(data.Dataset):
 
         self.sensor_inputs = sensor_inputs.astype(np.float32)
         self.ssp_outputs = ssp_outputs.astype(np.float32)
-        if self.maze_ids is not None:
+        if maze_ids is not None:
             self.maze_ids = maze_ids.astype(np.float32)
             self.combined_inputs = np.hstack([self.sensor_inputs, self.maze_ids])
         else:
@@ -1920,6 +1920,8 @@ def snapshot_localization_encoding_train_test_loaders(
 
         if maze_sps is not None:
             maze_ids = np.zeros((n_samples, maze_sps.shape[1]))
+        else:
+            maze_ids = None
 
         for i in range(n_samples):
             # choose random maze and position in maze
