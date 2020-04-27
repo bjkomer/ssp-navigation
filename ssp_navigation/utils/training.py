@@ -1645,9 +1645,12 @@ class LocalizationSnapshotDataset(data.Dataset):
     def __init__(self, sensor_inputs, maze_ids, ssp_outputs):
 
         self.sensor_inputs = sensor_inputs.astype(np.float32)
-        self.maze_ids = maze_ids.astype(np.float32)
         self.ssp_outputs = ssp_outputs.astype(np.float32)
-        self.combined_inputs = np.hstack([self.sensor_inputs, self.maze_ids])
+        if self.maze_ids is not None:
+            self.maze_ids = maze_ids.astype(np.float32)
+            self.combined_inputs = np.hstack([self.sensor_inputs, self.maze_ids])
+        else:
+            self.combined_inputs = self.sensor_inputs
         assert(self.sensor_inputs.shape[0] == self.combined_inputs.shape[0])
 
     def __getitem__(self, index):
@@ -1915,7 +1918,8 @@ def snapshot_localization_encoding_train_test_loaders(
         # for the 2D encoding method
         pos_outputs = np.zeros((n_samples, 2))
 
-        maze_ids = np.zeros((n_samples, maze_sps.shape[1]))
+        if maze_sps is not None:
+            maze_ids = np.zeros((n_samples, maze_sps.shape[1]))
 
         for i in range(n_samples):
             # choose random maze and position in maze
@@ -1939,8 +1943,9 @@ def snapshot_localization_encoding_train_test_loaders(
             # # one-hot maze ID
             # maze_ids[i, maze_ind] = 1
 
-            # supports both one-hot and random-sp
-            maze_ids[i, :] = maze_sps[maze_ind, :]
+            if maze_sps is not None:
+                # supports both one-hot and random-sp
+                maze_ids[i, :] = maze_sps[maze_ind, :]
 
             # for the 2D encoding method
             pos_outputs[i, :] = np.array([xs[xi], ys[yi]])

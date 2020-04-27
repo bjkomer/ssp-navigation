@@ -139,8 +139,11 @@ elif args.maze_id_type == 'random-sp':
     id_size = args.maze_id_dim
     maze_sps = np.zeros((n_mazes, args.maze_id_dim))
     # overwrite data
-    for mi in range(n_mazes):
-        maze_sps[mi, :] = spa.SemanticPointer(args.maze_id_dim).v
+    if id_size > 0:
+        for mi in range(n_mazes):
+            maze_sps[mi, :] = spa.SemanticPointer(args.maze_id_dim).v
+    else:
+        maze_sps = None
 else:
     raise NotImplementedError
 
