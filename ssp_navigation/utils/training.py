@@ -8,7 +8,7 @@ from spatial_semantic_pointers.utils import encode_point, encode_random, ssp_to_
 from spatial_semantic_pointers.plots import plot_predictions, plot_predictions_v
 from ssp_navigation.utils.datasets import MazeDataset, SingleMazeDataset
 from ssp_navigation.utils.encodings import get_encoding_heatmap_vectors
-from ssp_navigation.utils.path import plot_path_predictions, plot_path_predictions_image
+from ssp_navigation.utils.path import plot_path_predictions, plot_path_predictions_image, get_path_predictions_image
 from sklearn.metrics import r2_score
 import matplotlib.pyplot as plt
 import os
@@ -333,6 +333,47 @@ class PolicyValidationSet(object):
             model.train()
 
         return ret
+
+    def get_image_results(self, model):
+        criterion = nn.MSELoss()
+
+        rmses = np.zeros((self.n_mazes * self.n_goals, 2))
+        res = 64
+        ground_truth_images = np.zeros((self.n_mazes * self.n_goals, res, res))
+        prediction_images = np.zeros((self.n_mazes * self.n_goals, res, res))
+        # this image has an alpha channel and is plotted on top for the final figure
+        overlay_images = np.zeros((self.n_mazes * self.n_goals, res, res, 4))
+
+        with torch.no_grad():
+            model.eval()
+            # Each maze is in one batch
+            for i, data in enumerate(self.vizloader):
+                print("Viz batch {} of {}".format(i + 1, self.n_mazes * self.n_goals))
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                # loss = criterion(outputs, directions.to(self.device))
+
+                wall_overlay = (directions.detach().numpy()[:, 0] == 0) & (directions.detach().numpy()[:, 1] == 0)
+
+                # gather all relevant data
+                pred_image, gt_image, overlay_image, rmse, angle_rmse = get_path_predictions_image(
+                    directions_pred=outputs.detach().cpu().numpy(),
+                    directions_true=directions.detach().cpu().numpy(),
+                    wall_overlay=wall_overlay
+                )
+
+                rmses[i, 0] = rmse
+                rmses[i, 1] = angle_rmse
+
+                ground_truth_images[i, :, :] = gt_image
+                prediction_images[i, :, :] = pred_image
+                overlay_images[i, :, :, :] = overlay_image
+
+            model.train()
+
+        return ground_truth_images, prediction_images, overlay_images, rmses
 
 
 def compute_rmse(directions_pred, directions_true, wall_overlay=None):
