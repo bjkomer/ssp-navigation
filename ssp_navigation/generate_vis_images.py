@@ -101,7 +101,8 @@ else:
     print("Generating data for:")
     print(args.out_file)
 
-    # create the subdirectory if it doesn't aready exist
+# create the subdirectory if it doesn't aready exist
+if not os.path.exists(os.path.dirname(args.out_file)):
     os.makedirs(os.path.dirname(args.out_file))
 
 if args.connected_tiles:
