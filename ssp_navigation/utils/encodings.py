@@ -293,12 +293,13 @@ def encode_one_hot(x, y, xs, ys):
     return arr.flatten()
 
 
-def get_independent_ssp_encode_func(dim, seed, scaling=1.0):
+def get_independent_ssp_encode_func(dim, seed, scaling=1.0, recentered=False):
     """
     Generates an encoding function for SSPs that only takes (x,y) as input
     :param dim: dimension of the SSP
     :param seed: seed for randomly choosing axis vectors
     :param scaling: scaling the resolution of the space
+    :param recentered: modify the encoding to have zero mean
     :return:
     """
 
@@ -309,36 +310,49 @@ def get_independent_ssp_encode_func(dim, seed, scaling=1.0):
     # the same axis vector is used for each dimension
     axis_sp = make_good_unitary(dim=int(dim // 2), rng=rng)
 
-    def encode_ssp(x, y):
-        return np.concatenate([power(axis_sp, x * scaling).v, power(axis_sp, y * scaling).v])
+    if recentered:
+        d2 = dim // 2
+        def encode_ssp(x, y):
+            return np.concatenate(
+                [power(axis_sp, x * scaling).v - np.ones((d2,))*(1./ d2),
+                 power(axis_sp, y * scaling).v - np.ones((d2,))*(1./ d2)])
+    else:
+        def encode_ssp(x, y):
+            return np.concatenate([power(axis_sp, x * scaling).v, power(axis_sp, y * scaling).v])
 
     return encode_ssp
 
 
-def get_ssp_encode_func(dim, seed, scaling=1.0):
+def get_ssp_encode_func(dim, seed, scaling=1.0, recentered=False):
     """
     Generates an encoding function for SSPs that only takes (x,y) as input
     :param dim: dimension of the SSP
     :param seed: seed for randomly choosing axis vectors
     :param scaling: scaling the resolution of the space
+    :param recentered: modify the encoding to have zero mean
     :return:
     """
     rng = np.random.RandomState(seed=seed)
     x_axis_sp = make_good_unitary(dim=dim, rng=rng)
     y_axis_sp = make_good_unitary(dim=dim, rng=rng)
 
-    def encode_ssp(x, y):
-        return encode_point(x * scaling, y * scaling, x_axis_sp, y_axis_sp).v
+    if recentered:
+        def encode_ssp(x, y):
+            return encode_point(x * scaling, y * scaling, x_axis_sp, y_axis_sp).v - np.ones((dim,))*(1./ dim)
+    else:
+        def encode_ssp(x, y):
+            return encode_point(x * scaling, y * scaling, x_axis_sp, y_axis_sp).v
 
     return encode_ssp
 
 
-def get_hex_ssp_encode_func(dim, seed, scaling=1.0, optimal_phi=False):
+def get_hex_ssp_encode_func(dim, seed, scaling=1.0, optimal_phi=False, recentered=False):
     """
     Generates an encoding function for hex projection SSPs that only takes (x,y) as input
     :param dim: dimension of the SSP
     :param seed: seed for randomly choosing axis vectors
     :param scaling: scaling the resolution of the space
+    :param recentered: modify the encoding to have zero mean
     :return:
     """
     rng = np.random.RandomState(seed=seed)
@@ -351,8 +365,12 @@ def get_hex_ssp_encode_func(dim, seed, scaling=1.0, optimal_phi=False):
         y_axis_sp = make_good_unitary(dim=dim, rng=rng)
         z_axis_sp = make_good_unitary(dim=dim, rng=rng)
 
-    def encode_ssp(x, y):
-        return encode_point_hex(x * scaling, y * scaling, x_axis_sp, y_axis_sp, z_axis_sp).v
+    if recentered:
+        def encode_ssp(x, y):
+            return encode_point_hex(x * scaling, y * scaling, x_axis_sp, y_axis_sp, z_axis_sp).v - np.ones((dim,))*(1./ dim)
+    else:
+        def encode_ssp(x, y):
+            return encode_point_hex(x * scaling, y * scaling, x_axis_sp, y_axis_sp, z_axis_sp).v
 
     return encode_ssp
 
@@ -533,6 +551,16 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
     elif args.spatial_encoding == 'hex-ssp':
         repr_dim = args.dim
         encoding_func = get_hex_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling, optimal_phi=False)
+    elif args.spatial_encoding == 'rec-ssp':
+        repr_dim = args.dim
+        encoding_func = get_ssp_encode_func(
+            args.dim, args.seed, scaling=args.ssp_scaling, recentered=True
+        )
+    elif args.spatial_encoding == 'rec-hex-ssp':
+        repr_dim = args.dim
+        encoding_func = get_hex_ssp_encode_func(
+            args.dim, args.seed, scaling=args.ssp_scaling, optimal_phi=False, recentered=True
+        )
     elif args.spatial_encoding == 'periodic-hex-ssp':
         repr_dim = args.dim
         encoding_func = get_hex_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling, optimal_phi=True)
@@ -545,6 +573,11 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
     elif args.spatial_encoding == 'ind-ssp':
         repr_dim = args.dim
         encoding_func = get_independent_ssp_encode_func(args.dim, args.seed, scaling=args.ssp_scaling)
+    elif args.spatial_encoding == 'rec-ind-ssp':
+        repr_dim = args.dim
+        encoding_func = get_independent_ssp_encode_func(
+            args.dim, args.seed, scaling=args.ssp_scaling, recentered=True
+        )
     elif args.spatial_encoding == 'orth-proj-ssp':
         repr_dim = args.dim
         if hasattr(args, 'phi'):
