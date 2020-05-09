@@ -276,6 +276,9 @@ if args.spatial_encoding == 'grid-ssp':
 
 if (args.spatial_encoding == 'pc-gauss') or (args.spatial_encoding == 'pc-dog'):
     df['Hilbert Curve'] = args.hilbert_points
+    df['Sigma'] = args.pc_gauss_sigma
+    if args.spatial_encoding == 'pc-dog':
+        df['Diff Sigma'] = args.pc_diff_sigma
 
 if (args.spatial_encoding == 'random-trig') or (args.spatial_encoding == 'random-rotated-trig'):
     df['Freq Limit'] = args.freq_limit
