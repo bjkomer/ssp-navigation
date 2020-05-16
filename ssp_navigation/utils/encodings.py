@@ -1,6 +1,6 @@
 import numpy as np
 from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make_good_unitary, encode_random, \
-    make_optimal_periodic_axis, get_fixed_dim_grid_axes, power
+    make_optimal_periodic_axis, get_fixed_dim_grid_axes, power, get_fixed_dim_sub_toriod_axes
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
 from hilbertcurve.hilbertcurve import HilbertCurve
@@ -442,6 +442,24 @@ def get_orthogonal_nd_proj_ssp(dim, seed, scaling=1.0, phi=np.pi / 2.):
     return encode_ssp
 
 
+def get_sub_toroid_ssp(dim=512, seed=13, scaling=1.0, n_proj=3, scale_ratio=(1 + 5 ** 0.5) / 2, scale_start_index=0):
+
+    rng = np.random.RandomState(seed=seed)
+    x_axis_sp, y_axis_sp = get_fixed_dim_sub_toriod_axes(
+        dim=dim,
+        n_proj=n_proj,
+        scale_ratio=scale_ratio,
+        scale_start_index=scale_start_index,
+        rng=rng,
+        eps=0.001
+    )
+
+    def encode_ssp(x, y):
+        return encode_point(x * scaling, y * scaling, x_axis_sp, y_axis_sp).v
+
+    return encode_ssp
+
+
 def get_one_hot_encode_func(dim=512, limit_low=0, limit_high=13):
 
     optimal_side = int(np.floor(np.sqrt(dim)))
@@ -585,6 +603,12 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
         else:
             phi = np.pi / 2.
         encoding_func = get_orthogonal_nd_proj_ssp(args.dim, args.seed, scaling=args.ssp_scaling, phi=phi)
+    elif args.spatial_encoding == 'sub-toroid-ssp':
+        repr_dim = args.dim
+        encoding_func = get_sub_toroid_ssp(
+            dim=args.dim, seed=args.seed, scaling=args.ssp_scaling,
+            n_proj=args.n_proj, scale_ratio=args.scale_ratio, scale_start_index=0
+        )
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
@@ -643,7 +667,7 @@ def add_encoding_params(parser):
     parser.add_argument('--spatial-encoding', type=str, default='hex-ssp',
                         choices=[
                             'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
-                            'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
+                            'random', '2d', '2d-normalized', 'one-hot', 'hex-trig', 'sub-toroid-ssp',
                             'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'legendre',
                             'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
                             'pc-gauss', 'pc-dog', 'tile-coding'
@@ -663,6 +687,8 @@ def add_encoding_params(parser):
     parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum plane wave scale')
     parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
     parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
+    parser.add_argument('--n-proj', type=int, default=3, help='projection dimension for sub toroids')
+    parser.add_argument('--scale-ratio', type=float, default=(1 + 5 ** 0.5) / 2, help='ratio between sub toroid scales')
 
     parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the semantic pointers')
     parser.add_argument('--limit', type=float, default=5, help='The limits of the space')

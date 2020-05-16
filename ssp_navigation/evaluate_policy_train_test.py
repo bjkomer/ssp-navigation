@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
-                        'rec-ssp', 'rec-hex-ssp', 'rec-ind-ssp',
+                        'rec-ssp', 'rec-hex-ssp', 'rec-ind-ssp', 'sub-toroid-ssp',
                         'random', '2d', '2d-normalized', 'one-hot',
                         'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
                         'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized', 'legendre',
@@ -42,6 +42,8 @@ parser.add_argument('--ssp-scaling', type=float, default=1.0)
 parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum plane wave scale')
 parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
 parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
+parser.add_argument('--n-proj', type=int, default=3, help='projection dimension for sub toroids')
+parser.add_argument('--scale-ratio', type=float, default=(1 + 5 ** 0.5) / 2, help='ratio between sub toroid scales')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--encoding-limit', type=float, default=0.0,
                     help='if set, use this upper limit to define the space that the encoding is optimized over')
@@ -270,6 +272,11 @@ df['Maze ID Dim'] = args.maze_id_dim
 df['Tile Mazes'] = args.tile_mazes
 df['Dropout Fraction'] = args.dropout_fraction
 df['SSP Scaling'] = args.ssp_scaling
+
+if args.spatial_encoding == 'sub-toriod-ssp':
+    df['Proj Dim'] = args.n_proj
+    df['Scale Ratio'] = args.scale_ratio
+
 if args.spatial_encoding == 'grid-ssp':
     df['Grid SSP Min'] = args.grid_ssp_min
     df['Grid SSP Max'] = args.grid_ssp_max
