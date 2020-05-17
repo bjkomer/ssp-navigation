@@ -442,6 +442,45 @@ def get_orthogonal_nd_proj_ssp(dim, seed, scaling=1.0, phi=np.pi / 2.):
     return encode_ssp
 
 
+def get_proj_ssp(dim, seed, n_proj, scaling=1.0):
+    rng = np.random.RandomState(seed)
+    angle = rng.uniform(0, 2*np.pi)
+
+    # make an axis for each n
+    axis_sps = []
+    for k in range(n_proj):
+        axis_sps.append(make_good_unitary(dim=dim, rng=rng))
+
+    points_nd = np.eye(n_proj) * np.sqrt(n_proj)
+    # points in 2D that will correspond to each axis, plus one at zero
+    points_2d = np.zeros((n_proj, 2))
+    # special case when projecting 2D to 2D, make axes 90 degrees apart
+    if n_proj == 2:
+        thetas = np.linspace(0, np.pi, n_proj + 1)[:-1] + angle
+    else:
+        thetas = np.linspace(0, 2 * np.pi, n_proj + 1)[:-1] + angle
+    for i, theta in enumerate(thetas):
+        points_2d[i, 0] = np.cos(theta)
+        points_2d[i, 1] = np.sin(theta)
+
+    transform_mat = np.linalg.lstsq(points_2d, points_nd)
+    sv = transform_mat[3][0]
+
+    x_axis = transform_mat[0][0, :] / sv
+    y_axis = transform_mat[0][1, :] / sv
+
+    X = power(axis_sps[0], x_axis[0])
+    Y = power(axis_sps[0], y_axis[0])
+    for i in range(1, n_proj):
+        X *= power(axis_sps[i], x_axis[i])
+        Y *= power(axis_sps[i], y_axis[i])
+
+    def encode_ssp(x, y):
+        return encode_point(x * scaling * sv, y * scaling * sv, X, Y).v
+
+    return encode_ssp
+
+
 def get_sub_toroid_ssp(dim=512, seed=13, scaling=1.0, n_proj=3, scale_ratio=(1 + 5 ** 0.5) / 2, scale_start_index=0):
 
     rng = np.random.RandomState(seed=seed)
@@ -609,6 +648,11 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
             dim=args.dim, seed=args.seed, scaling=args.ssp_scaling,
             n_proj=args.n_proj, scale_ratio=args.scale_ratio, scale_start_index=0
         )
+    elif args.spatial_encoding == 'proj-ssp':
+        repr_dim = args.dim
+        encoding_func = get_proj_ssp(
+            dim=args.dim, seed=args.seed, scaling=args.ssp_scaling, n_proj=args.n_proj
+        )
     elif args.spatial_encoding == 'one-hot':
         repr_dim = int(np.sqrt(args.dim)) ** 2
         encoding_func = get_one_hot_encode_func(dim=args.dim, limit_low=limit_low, limit_high=limit_high)
@@ -667,7 +711,7 @@ def add_encoding_params(parser):
     parser.add_argument('--spatial-encoding', type=str, default='hex-ssp',
                         choices=[
                             'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
-                            'random', '2d', '2d-normalized', 'one-hot', 'hex-trig', 'sub-toroid-ssp',
+                            'random', '2d', '2d-normalized', 'one-hot', 'hex-trig', 'sub-toroid-ssp', 'proj-ssp',
                             'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'legendre',
                             'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
                             'pc-gauss', 'pc-dog', 'tile-coding'

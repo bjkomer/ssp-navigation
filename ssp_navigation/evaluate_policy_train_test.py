@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
-                        'rec-ssp', 'rec-hex-ssp', 'rec-ind-ssp', 'sub-toroid-ssp',
+                        'rec-ssp', 'rec-hex-ssp', 'rec-ind-ssp', 'sub-toroid-ssp', 'proj-ssp',
                         'random', '2d', '2d-normalized', 'one-hot',
                         'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
                         'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized', 'legendre',
@@ -276,6 +276,9 @@ df['SSP Scaling'] = args.ssp_scaling
 if args.spatial_encoding == 'sub-toriod-ssp':
     df['Proj Dim'] = args.n_proj
     df['Scale Ratio'] = args.scale_ratio
+
+if args.spatial_encoding == 'proj-ssp':
+    df['Proj Dim'] = args.n_proj
 
 if args.spatial_encoding == 'grid-ssp':
     df['Grid SSP Min'] = args.grid_ssp_min
