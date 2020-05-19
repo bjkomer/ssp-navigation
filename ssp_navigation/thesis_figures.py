@@ -135,9 +135,18 @@ elif args.figure == 'tiled-maze':
     df = df[df['Hidden Layers'] == 1]
     df = df[df['Hidden Layer Size'] == 2048]
     df = df[df['Maze ID Dim'] == 0]
-    df = df.replace('learned-normalized', 'Learned')
+    # df = df.replace('learned-normalized', 'Learned')
+    df = df.replace('Learned Normalized', 'Learned')
     order = ['Hex SSP', 'RBF', 'Tile-Code', 'Learned']
-    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    # fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+
+    # for cogsci version of the figure
+    fix, ax = plt.subplots(1, 1, figsize=(8, 5), tight_layout=True)
+    label_fontsize = 15  # 20
+    tick_fontsize = 12  # 16
+    ax.set_xlabel('Encoding', fontsize=label_fontsize)
+    ax.set_ylabel('RMSE', fontsize=label_fontsize)
+    ax.tick_params(labelsize=tick_fontsize)
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes', order=order)
 elif args.figure == 'blocksmaze':
     # print(df['Trained On'].unique())
@@ -235,6 +244,11 @@ elif args.figure == 'network-size':
 elif args.figure == 'hidden-size':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     # sns.barplot(data=df, x='Hidden Layer Size', y='Angular RMSE', hue='Encoding')
+    df = df[df['Encoding'] == 'SSP']
+    # df = df[df['Encoding'] == 'Hex SSP']
+    # df = df[df['Encoding'] == 'RBF']
+    # df = df[df['Encoding'] == 'Tile-Code']
+    # df = df[df['Encoding'] == 'One-Hot']
     sns.barplot(data=df, x='Hidden Layer Size', y='Angular RMSE')
     # sns.lineplot(data=df, x='Hidden Layer Size', y='Angular RMSE', ax=ax)
     # ax.set(xscale='log')
