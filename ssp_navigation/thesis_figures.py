@@ -11,7 +11,7 @@ parser.add_argument('--figure', type=str, default='capacity',
     choices=[
         'capacity', 'bounds', 'connected-tiled-maze', '100-tiled-maze', '25-tiled-maze', 'tiled-maze',
         'blocksmaze', 'small-env', 'large-env', 'network-size', 'hidden-size', 'dim', 'all-enc-256',
-        'scale-params', 'lr', 'batch-size'
+        'scale-params', 'lr', 'batch-size', 'proj-exps',
     ]
 )
 
@@ -51,7 +51,8 @@ elif args.figure == '25-tiled-maze':
 elif args.figure == 'tiled-maze':
     folders = ['eval_data_tt/large_dim_25tiledmaze_more_samples_exps', 'eval_data_tt/large_dim_100tiledmaze_more_samples_exps']
 elif args.figure == 'blocksmaze':
-    folders = ['eval_data_tt/final_blocksmaze_exps']
+    # folders = ['eval_data_tt/final_blocksmaze_exps']
+    folders = ['eval_data_tt/final_moredata_blocksmaze_exps']
     df_fresh = pd.DataFrame()
 elif args.figure == 'small-env':
     folders = ['eval_data_tt/small_map_med_dim_exps']
@@ -72,6 +73,8 @@ elif args.figure == 'lr':
     folders = ['eval_data_tt/lr_exps']
 elif args.figure == 'batch-size':
     folders = ['eval_data/batch_exps']
+elif args.figure == 'proj-exps':
+    folders = ['eval_data_tt/ssp_proj_exps']
 else:
     raise NotImplementedError
 
@@ -326,6 +329,13 @@ elif args.figure == 'batch-size':
     # sns.barplot(data=df, x='Batch Size', y='Angular RMSE')
     sns.lineplot(data=df, x='Batch Size', y='Angular RMSE', ax=ax)
     ax.set(xscale='log')
-
+elif args.figure == 'proj-exps':
+    df_st = df[df['Encoding'] == 'sub-toroid-ssp']
+    print(df_st)
+    df_proj = df[df['Encoding'] == 'proj-ssp']
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df_st, x='Encoding', y='Angular RMSE')
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df_proj, x='Encoding', y='Angular RMSE', hue='Proj Dim')
 sns.despine()
 plt.show()

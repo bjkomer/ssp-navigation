@@ -139,6 +139,7 @@ def main():
     parser.add_argument('--spatial-encoding', type=str, default='ssp',
                         choices=[
                             'ssp', 'hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
+                            'sub-toroid-ssp', 'var-sub-toroid-ssp', 'proj-ssp', 'orth-proj-ssp',
                             'trig', 'random-trig', 'random-proj', 'learned', 'frozen-learned',
                             'pc-gauss', 'pc-dog', 'tile-coding'
                         ],
@@ -150,6 +151,9 @@ def main():
     parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
     parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
     parser.add_argument('--ssp-scaling', type=float, default=1.0)
+    parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
+    parser.add_argument('--n-proj', type=int, default=3, help='projection dimension for sub toroids')
+    parser.add_argument('--scale-ratio', type=float, default=(1 + 5 ** 0.5) / 2, help='ratio between sub toroid scales')
 
     parser.add_argument('--val-period', type=int, default=10, help='number of epochs before a test/validation set run')
     parser.add_argument('--train-fraction', type=float, default=.5, help='proportion of the dataset to use for training')

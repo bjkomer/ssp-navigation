@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
-                        'rec-ssp', 'rec-hex-ssp', 'rec-ind-ssp', 'sub-toroid-ssp', 'proj-ssp',
+                        'rec-ssp', 'rec-hex-ssp', 'rec-ind-ssp', 'sub-toroid-ssp', 'proj-ssp', 'var-sub-toroid-ssp',
                         'random', '2d', '2d-normalized', 'one-hot',
                         'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
                         'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized', 'legendre',

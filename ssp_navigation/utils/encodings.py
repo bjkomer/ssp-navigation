@@ -1,6 +1,7 @@
 import numpy as np
 from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make_good_unitary, encode_random, \
-    make_optimal_periodic_axis, get_fixed_dim_grid_axes, power, get_fixed_dim_sub_toriod_axes
+    make_optimal_periodic_axis, get_fixed_dim_grid_axes, power, \
+    get_fixed_dim_sub_toriod_axes, get_fixed_dim_variable_sub_toriod_axes
 from functools import partial
 from ssp_navigation.utils.models import EncodingLayer
 from hilbertcurve.hilbertcurve import HilbertCurve
@@ -499,6 +500,21 @@ def get_sub_toroid_ssp(dim=512, seed=13, scaling=1.0, n_proj=3, scale_ratio=(1 +
     return encode_ssp
 
 
+def get_var_sub_toroid_ssp(dim=512, seed=13, scaling=1.0):
+
+    rng = np.random.RandomState(seed=seed)
+    x_axis_sp, y_axis_sp = get_fixed_dim_variable_sub_toriod_axes(
+        dim=dim,
+        rng=rng,
+        eps=0.001
+    )
+
+    def encode_ssp(x, y):
+        return encode_point(x * scaling, y * scaling, x_axis_sp, y_axis_sp).v
+
+    return encode_ssp
+
+
 def get_one_hot_encode_func(dim=512, limit_low=0, limit_high=13):
 
     optimal_side = int(np.floor(np.sqrt(dim)))
@@ -648,6 +664,11 @@ def get_encoding_function(args, limit_low=0, limit_high=13):
             dim=args.dim, seed=args.seed, scaling=args.ssp_scaling,
             n_proj=args.n_proj, scale_ratio=args.scale_ratio, scale_start_index=0
         )
+    elif args.spatial_encoding == 'var-sub-toroid-ssp':
+        repr_dim = args.dim
+        encoding_func = get_var_sub_toroid_ssp(
+            dim=args.dim, seed=args.seed, scaling=args.ssp_scaling,
+        )
     elif args.spatial_encoding == 'proj-ssp':
         repr_dim = args.dim
         encoding_func = get_proj_ssp(
@@ -711,7 +732,8 @@ def add_encoding_params(parser):
     parser.add_argument('--spatial-encoding', type=str, default='hex-ssp',
                         choices=[
                             'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
-                            'random', '2d', '2d-normalized', 'one-hot', 'hex-trig', 'sub-toroid-ssp', 'proj-ssp',
+                            'sub-toroid-ssp', 'proj-ssp', 'var-sub-toroid-ssp',
+                            'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                             'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'legendre',
                             'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
                             'pc-gauss', 'pc-dog', 'tile-coding'
