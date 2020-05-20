@@ -273,7 +273,7 @@ df['Tile Mazes'] = args.tile_mazes
 df['Dropout Fraction'] = args.dropout_fraction
 df['SSP Scaling'] = args.ssp_scaling
 
-if args.spatial_encoding == 'sub-toriod-ssp':
+if args.spatial_encoding == 'sub-toroid-ssp':
     df['Proj Dim'] = args.n_proj
     df['Scale Ratio'] = args.scale_ratio
 
