@@ -148,3 +148,113 @@ class GoalFindingAgent(object):
             # TODO: possibly do a transform on the action output if the environment needs it
 
             return vel_action
+
+
+class IntegSystemAgent(object):
+
+    def __init__(self,
+                 cleanup_network,
+                 localization_network,
+                 policy_network,
+                 cleanup_gt,
+                 localization_gt,
+                 new_sensor_ratio,
+                 x_axis_vec,
+                 y_axis_vec,
+                 dt,
+                 ):
+
+        self.cleanup_network = cleanup_network
+        self.localization_network = localization_network
+        self.policy_network = policy_network
+
+        # Ground truth versions of the above functions
+        self.cleanup_gt = cleanup_gt
+        self.localization_gt = localization_gt
+
+        # need a reasonable default for the agent ssp
+        # maybe use a snapshot localization network that only uses distance sensors to initialize it?
+        self.agent_ssp = None
+
+        # fraction of weighting on new sensor measurement
+        # old measurement will be (1 - ratio)
+        self.new_sensor_ratio = new_sensor_ratio
+
+        # used for updating position estimate based on velocity
+        self.x_axis_vec = x_axis_vec
+        self.y_axis_vec = y_axis_vec
+        self.xf = np.fft.fft(self.x_axis_vec)
+        self.yf = np.fft.fft(self.y_axis_vec)
+        self.dt = dt
+
+    def localize(self, distances, map_id, env, use_localization_gt=False):
+
+        if use_localization_gt:
+            self.agent_ssp = self.localization_gt(env)
+        else:
+            # inputs = torch.cat([torch.Tensor(distances), torch.Tensor(map_id)])
+            inputs = torch.cat([distances, map_id], dim=1)  # dim is set to 1 because there is a batch dimension
+            self.agent_ssp = self.localization_network(inputs)
+
+            # normalize the agent SSP
+            self.agent_ssp = self.agent_ssp / float(np.linalg.norm(self.agent_ssp.detach().numpy()))
+
+    def apply_velocity(self, ssp, vel):
+        # extra zero index is because of the batch dimension
+        vel_ssp = (self.xf**vel[0, 0])*(self.yf**vel[0, 1])
+        return np.fft.ifft(np.fft.fft(ssp)*vel_ssp).real
+
+    def act(self, distances, velocity, semantic_goal, map_id, item_memory, env,
+            use_cleanup_gt=False, use_localization_gt=False):
+        """
+        :param distances: Series of distance sensor measurements
+        :param velocity: 2D velocity of the agent from last timestep
+        :param semantic_goal: A semantic pointer for the item of interest
+        :param map_id: Vector acting as context for the current map. Typically a one-hot vector
+        :param item_memory: Spatial semantic pointer containing a summation of LOC*ITEM
+        :param env: Instance of the environment, for use with ground truth methods
+        :param use_cleanup_gt: If set, use a ground truth cleanup memory
+        :param use_localization_gt: If set, use the ground truth localization
+        :return: 2D holonomic velocity action
+        """
+
+        with torch.no_grad():
+            if use_localization_gt:
+                self.agent_ssp = self.localization_gt(env).squeeze(0)
+            else:
+                agent_ssp_estimate = self.localization_network(
+                        inputs=torch.cat([distances, map_id], dim=1)
+                    ).squeeze(0)
+
+                # TODO: do some appropriate mixing here
+                self.agent_ssp = torch.Tensor(
+                    self.apply_velocity(
+                        self.agent_ssp.detach().numpy(),
+                        velocity.detach().numpy()
+                    )
+                ).squeeze(0) * self.new_sensor_ratio + agent_ssp_estimate * (1 - self.new_sensor_ratio)
+
+            if use_cleanup_gt:
+                goal_ssp = self.cleanup_gt(env)
+                agent_ssp = self.agent_ssp.unsqueeze(0)
+            else:
+                noisy_goal_ssp = item_memory *~ semantic_goal
+                goal_ssp = self.cleanup_network(torch.Tensor(noisy_goal_ssp.v).unsqueeze(0))
+                # Normalize the result
+                goal_ssp = goal_ssp / float(np.linalg.norm(goal_ssp.detach().numpy()))
+
+                if not use_localization_gt:
+                    # clean up the agent estimate for use in the network
+                    agent_ssp = self.cleanup_network(torch.Tensor(self.agent_ssp).unsqueeze(0))
+                    agent_ssp = agent_ssp / float(np.linalg.norm(agent_ssp.detach().numpy()))
+                else:
+                    agent_ssp = self.agent_ssp.unsqueeze(0)
+
+            vel_action = self.policy_network(
+                # torch.cat([map_id, self.agent_ssp, goal_ssp], dim=1)
+                torch.cat([map_id, agent_ssp, goal_ssp], dim=1)
+            ).squeeze(0).detach().numpy()
+
+            # TODO: possibly do a transform on the action output if the environment needs it
+
+            return vel_action
