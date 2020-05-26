@@ -51,7 +51,7 @@ parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum pl
 parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
 parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
 parser.add_argument('--n-proj', type=int, default=3, help='projection dimension for sub toroids')
-parser.add_argument('--scale-ratio', type=float, default=(1 + 5 ** 0.5) / 2, help='ratio between sub toroid scales')
+parser.add_argument('--scale-ratio', type=float, default=0, help='ratio between sub toroid scales')
 parser.add_argument('--subsample', type=int, default=1, help='amount to subsample for the visualization validation')
 parser.add_argument('--encoding-limit', type=float, default=0.0,
                     help='if set, use this upper limit to define the space that the encoding is optimized over')
