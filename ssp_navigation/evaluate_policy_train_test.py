@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import argparse
 import os
-from ssp_navigation.utils.models import MLP, LearnedEncoding
+from ssp_navigation.utils.models import MLP, LearnedEncoding, LearnedSSPEncoding
 # from utils.encodings import get_ssp_encode_func, encode_trig, encode_hex_trig, encode_random_trig, \
 #     encode_projection, get_one_hot_encode_func, get_pc_gauss_encoding_func, get_tile_encoding_func
 # from spatial_semantic_pointers.utils import encode_random
@@ -22,6 +22,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
                     choices=[
                         'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
+                        'learned-ssp',
                         'rec-ssp', 'rec-hex-ssp', 'rec-ind-ssp', 'sub-toroid-ssp', 'proj-ssp', 'var-sub-toroid-ssp',
                         'random', '2d', '2d-normalized', 'one-hot',
                         'hex-trig', 'trig', 'random-trig', 'random-rotated-trig', 'random-proj',
@@ -192,7 +193,17 @@ encoding_func, repr_dim = get_encoding_function(args, limit_low=limit_low, limit
 
 
 # input is maze, loc, goal ssps, output is 2D direction to move
-if 'learned' in args.spatial_encoding:
+if args.spatial_encoding == 'learned-ssp':
+    model = LearnedSSPEncoding(
+        input_size=repr_dim,
+        encoding_size=args.dim,
+        maze_id_size=id_size,
+        hidden_size=args.hidden_size,
+        output_size=2,
+        n_layers=args.n_hidden_layers,
+        dropout_fraction=args.dropout_fraction,
+    )
+elif 'learned' in args.spatial_encoding:
     model = LearnedEncoding(
         input_size=repr_dim,
         encoding_size=args.dim,
@@ -308,7 +319,4 @@ df['Learning Rate'] = args.lr
 df['Momentum'] = args.momentum
 df['Optimizer'] = args.optimizer
 
-
-
 df.to_csv(args.out_file)
-

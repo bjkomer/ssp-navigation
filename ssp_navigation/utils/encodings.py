@@ -607,7 +607,7 @@ def get_encoding_heatmap_vectors(xs, ys, dim, encoding_func):
 
 
 def get_encoding_function(args, limit_low=0, limit_high=13):
-    if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned':
+    if args.spatial_encoding == '2d' or args.spatial_encoding == 'learned' or args.spatial_encoding == 'frozen-learned' or args.spatial_encoding == 'learned-ssp':
         repr_dim = 2
 
         # no special encoding required for these cases

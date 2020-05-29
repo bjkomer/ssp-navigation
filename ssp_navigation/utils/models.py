@@ -146,6 +146,111 @@ class EncodingLayer(nn.Module):
         return encoding
 
 
+class LearnedSSPEncoding(nn.Module):
+
+    def __init__(self, input_size=2, encoding_size=512, maze_id_size=512,
+                 hidden_size=512, output_size=2, n_layers=1, dropout_fraction=0.0):
+        """This model learns the phi values of the SSP encoding along with the rest of the network"""
+        super(LearnedSSPEncoding, self).__init__()
+
+        self.input_size = input_size
+        self.encoding_size = encoding_size
+        self.maze_id_size = maze_id_size
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.n_layers = n_layers
+
+        # Learnable SSP encoding
+        self.encoding_layer = SSPTransform(coord_dim=self.input_size, ssp_dim=self.encoding_size)
+
+        # Need to use ModuleList rather than a regular Python list so that the module correctly keeps track
+        # of the parameters, and allows network.to(device) to work correctly
+        self.inner_layers = nn.ModuleList()
+
+        self.dropout = nn.Dropout(p=dropout_fraction)
+
+        self.input_layer = nn.Linear(self.encoding_size*2 + self.maze_id_size, self.hidden_size)
+        for i in range(self.n_layers - 1):
+            self.inner_layers.append(nn.Linear(self.hidden_size, self.hidden_size))
+        self.output_layer = nn.Linear(self.hidden_size, self.output_size)
+
+    def forward_activations_encoding(self, inputs):
+        """Returns the hidden layer activations as well as the prediction"""
+
+        if self.maze_id_size == 0:
+            loc_pos = inputs[:, :self.input_size]
+            goal_pos = inputs[:, self.input_size:self.input_size * 2]
+
+            loc_encoding = self.encoding_layer(loc_pos)
+            goal_encoding = self.encoding_layer(goal_pos)
+            features = self.dropout(F.relu(self.input_layer(torch.cat([loc_encoding, goal_encoding], dim=1))))
+        else:
+            maze_id = inputs[:, :self.maze_id_size]
+            loc_pos = inputs[:, self.maze_id_size:self.maze_id_size + self.input_size]
+            goal_pos = inputs[:, self.maze_id_size + self.input_size:self.maze_id_size + self.input_size*2]
+
+            loc_encoding = self.encoding_layer(loc_pos)
+            goal_encoding = self.encoding_layer(goal_pos)
+            features = self.dropout(F.relu(self.input_layer(torch.cat([maze_id, loc_encoding, goal_encoding], dim=1))))
+
+        for i in range(self.n_layers - 1):
+            features = self.dropout(F.relu(self.inner_layers[i](features)))
+        prediction = self.output_layer(features)
+
+        return prediction, features, loc_encoding, goal_encoding
+
+    def forward(self, inputs):
+
+        return self.forward_activations_encoding(inputs)[0]
+
+
+class SSPTransform(nn.Module):
+
+    def __init__(self, coord_dim, ssp_dim):
+        super(SSPTransform, self).__init__()
+
+        # dimensionality of the input coordinates
+        self.coord_dim = coord_dim
+
+        # dimensionality of the SSP
+        self.ssp_dim = ssp_dim
+
+        # number of phi parameters to learn
+        self.n_param = (ssp_dim-1) // 2
+
+        self.phis = nn.Parameter(torch.Tensor(self.coord_dim, self.n_param))
+
+        # initialize parameters
+        torch.nn.init.uniform_(self.phis, a=-np.pi + 0.001, b=np.pi - 0.001)
+
+        # number of phis, plus constant, plus potential nyquist if even
+        self.tau_len = (self.ssp_dim // 2) + 1
+        # constants used in the transformation
+        # first dimension is batch dimension, set to 1 to be broadcastable
+        self.const_phase = torch.zeros(1, self.ssp_dim, self.tau_len)
+        for a in range(self.ssp_dim):
+            for k in range(self.tau_len):
+                self.const_phase[:, a, k] = 2*np.pi*k*a/self.ssp_dim
+
+        # The 2/N or 1/N scaling applied outside of the cos
+        # 2/N on all terms with phi, 1/N on constant and nyquist if it exists
+        self.const_scaling = torch.ones(1, 1, self.tau_len)*2./self.ssp_dim
+        self.const_scaling[:, :, 0] = 1./self.ssp_dim
+        if self.ssp_dim % 2 == 0:
+            self.const_scaling[:, :, -1] = 1. / self.ssp_dim
+
+    def forward(self, inputs):
+
+        batch_size = inputs.shape[0]
+
+        full_phis = torch.zeros(self.coord_dim, self.tau_len, dtype=inputs.dtype)
+        full_phis[:, 1:self.n_param + 1] = self.phis
+        shift = torch.zeros(batch_size, 1, self.tau_len, dtype=inputs.dtype)
+        shift[:, 0, :] = torch.mm(inputs, full_phis)
+
+        return (torch.cos(shift + self.const_phase) * self.const_scaling).sum(axis=2)
+
+
 # class LearnedEncoding(nn.Module):
 #
 #     def __init__(self, input_size=2, encoding_size=512, maze_id_size=512, hidden_size=512, output_size=2):
