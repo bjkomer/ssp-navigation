@@ -31,7 +31,7 @@ parser.add_argument('--localization-network', type=str,
                     default='networks/localization_network.pt',
                     help='localization from distance sensors and context')
 parser.add_argument('--policy-network', type=str,
-                    default='networks/policy_network.pt',
+                    default='networks/policy_network_10maze_512dim_2048hs_st.pt',
                     help='goal navigation network')
 
 parser.add_argument('--dataset', type=str,
@@ -40,8 +40,9 @@ parser.add_argument('--dataset', type=str,
 parser.add_argument('--maze-index', type=int, default=0, help='index within the dataset for the maze to use')
 parser.add_argument('--noise', type=float, default=0.25, help='magnitude of gaussian noise to add to the actions')
 parser.add_argument('--use-dataset-goals', action='store_true', help='use only the goals the policy was trained on')
-parser.add_argument('--ghost', type=str, default='trajectory_loc', choices=['none', 'snapshot_loc', 'trajectory_loc'],
-                    help='what information should be displayed by the ghost')
+# parser.add_argument('--ghost', type=str, default='trajectory_loc', choices=['none', 'snapshot_loc', 'trajectory_loc'],
+#                     help='what information should be displayed by the ghost')
+parser.add_argument('--ghost', action='store_true', help='show the localization estimate')
 parser.add_argument('--use-cleanup-gt', action='store_true')
 # parser.add_argument('--use-policy-gt', action='store_true')
 parser.add_argument('--use-localization-gt', action='store_true')
@@ -52,11 +53,15 @@ parser.add_argument('--normalize-action', action='store_true', help='normalize a
 parser.add_argument('--new-sensor-ratio', default=0.1, help='weighting on new sensor information')
 
 # network parameters
-parser.add_argument('--cleanup-hs', default=512, help='hidden size for cleanup')
-parser.add_argument('--localization-hs', default=512, help='hidden size for localization')
-parser.add_argument('--policy-hs', default=512, help='hidden size for policy')
+parser.add_argument('--cleanup-hs', type=int, default=512, help='hidden size for cleanup')
+parser.add_argument('--localization-hs', type=int, default=512, help='hidden size for localization')
+parser.add_argument('--policy-hs', type=int, default=2048, help='hidden size for policy')
 parser.add_argument('--n-hidden-layers-policy', type=int, default=1, help='number of hidden layers in the policy network')
 parser.add_argument('--policy-dropout-fraction', type=float, default=0.1)
+
+parser.add_argument('--evaluate', action='store_true', help='if set, evaluate system on a variety of mazes')
+parser.add_argument('--record-trajectories', action='store_true', help='if set, record agent position at every step')
+parser.add_argument('--env-seed', type=int, default=13)
 
 parser = add_encoding_params(parser)
 
@@ -106,7 +111,7 @@ params = {
     # 'map_style': args.map_style,
     'map_size': 10,
     'fixed_episode_length': False,  # Setting to false so location resets are not automatic
-    'episode_length': 500,#1000,  #200,
+    'episode_length': 1000,#500, 1000,  #200,
     'max_lin_vel': 5,
     'max_ang_vel': 5,
     'dt': 0.1,
@@ -122,6 +127,11 @@ params = {
     'csp_dim': 0,
     'goal_csp': False,
     'agent_csp': False,
+
+    # set up rewards so minimum score is -1 and maximum score is +1 (based on 1000 steps max)
+    'wall_penalty': -.001,
+    'movement_cost': -.001,
+    'goal_reward': 1.,
 
     'goal_distance': 0,#args.goal_distance  # 0 means completely random
 }
@@ -194,10 +204,14 @@ env = GridWorldEnv(
     continuous=params['continuous'],
     max_steps=params['episode_length'],
     fixed_episode_length=params['fixed_episode_length'],
+    wall_penalty=params['wall_penalty'],
+    movement_cost=params['movement_cost'],
+    goal_reward=params['goal_reward'],
     dt=params['dt'],
     screen_width=300,
     screen_height=300,
     debug_ghost=True,
+    seed=args.env_seed,
 )
 
 # Fill the item memory with the correct SSP for remembering the goal locations
@@ -283,77 +297,235 @@ agent = IntegSystemAgent(
     dt=params['dt'],
 )
 
-num_episodes = 10
-time_steps = 10000#100
-returns = np.zeros((num_episodes,))
-for e in range(num_episodes):
-    obs = env.reset(goal_distance=params['goal_distance'])
+if not args.evaluate:
+    # view the system in action
 
-    print(env.goal_state)
+    num_episodes = 10
+    time_steps = 10000#100
+    returns = np.zeros((num_episodes,))
+    for e in range(num_episodes):
+        obs = env.reset(goal_distance=params['goal_distance'])
 
-    # env.goal_object is the string name for the goal
-    # env.goal_state[[0, 1]] is the 2D location for that goal
-    semantic_goal = vocab[env.goal_object]
+        print(env.goal_state)
 
-    distances = torch.Tensor(obs).unsqueeze(0)
-    agent.localize(
-        distances,
-        map_id,
-        env,
-        use_localization_gt=args.use_localization_gt
-    )
-    action = np.zeros((2,))
-    for s in range(params['episode_length']):
-        env.render()
-        env._render_extras()
+        # env.goal_object is the string name for the goal
+        # env.goal_state[[0, 1]] is the 2D location for that goal
+        semantic_goal = vocab[env.goal_object]
 
         distances = torch.Tensor(obs).unsqueeze(0)
-        velocity = torch.Tensor(action).unsqueeze(0)
+        agent.localize(
+            distances,
+            map_id,
+            env,
+            use_localization_gt=args.use_localization_gt
+        )
+        action = np.zeros((2,))
+        for s in range(params['episode_length']):
+            env.render()
+            env._render_extras()
 
-        # TODO: need to give the semantic goal and the maze_id to the agent
-        # action = agent.act(obs)
-        action = agent.act(
-            distances=distances,
-            velocity=velocity,  # TODO: use real velocity rather than action, because of hitting walls
-            semantic_goal=semantic_goal,
-            map_id=map_id,
-            item_memory=item_memory,
+            distances = torch.Tensor(obs).unsqueeze(0)
+            velocity = torch.Tensor(action).unsqueeze(0)
 
-            env=env,  # only used for some ground truth options
-            use_cleanup_gt=args.use_cleanup_gt,
-            use_localization_gt=args.use_localization_gt,
+            # TODO: need to give the semantic goal and the maze_id to the agent
+            # action = agent.act(obs)
+            action = agent.act(
+                distances=distances,
+                velocity=velocity,  # TODO: use real velocity rather than action, because of hitting walls
+                semantic_goal=semantic_goal,
+                map_id=map_id,
+                item_memory=item_memory,
+
+                env=env,  # only used for some ground truth options
+                use_cleanup_gt=args.use_cleanup_gt,
+                use_localization_gt=args.use_localization_gt,
+            )
+
+            # if args.ghost != 'none' and False:
+            #     if args.ghost == 'trajectory_loc':
+            #         # localization ghost
+            #         agent_ssp = agent.localization_network(
+            #             inputs=(torch.cat([velocity, distances, map_id], dim=1),),
+            #             initial_ssp=agent.agent_ssp
+            #         ).squeeze(0)
+            #     elif args.ghost == 'snapshot_loc':
+            #         # snapshot localization ghost
+            #         agent_ssp = agent.snapshot_localization_network(torch.cat([distances, map_id], dim=1))
+            #     agent_loc = ssp_to_loc(agent_ssp.squeeze(0).detach().numpy(), heatmap_vectors, xs, ys)
+            #     # Scale to env coordinates, from (-5,5) to (0,13)
+            #     agent_loc = ((agent_loc - xs[0]) / limit_range) * coarse_size
+            #     env.render_ghost(x=agent_loc[0], y=agent_loc[1])
+
+            if args.ghost:
+                agent_loc = ssp_to_loc(agent.clean_agent_ssp.squeeze(0).detach().numpy(), heatmap_vectors, xs, ys)
+                # Scale to env coordinates, from (-5,5) to (0,13)
+                agent_loc = ((agent_loc - xs[0]) / limit_range) * coarse_size
+                env.render_ghost(x=agent_loc[0], y=agent_loc[1])
+
+            if args.normalize_action:
+                mag = np.linalg.norm(action)
+                if mag > 0.001:
+                    action = action / np.linalg.norm(action)
+
+            # Add small amount of noise to the action
+            action += np.random.normal(size=2) * args.noise
+
+            obs, reward, done, info = env.step(action)
+            # print(obs)
+            returns[e] += reward
+            # if reward != 0:
+            #    print(reward)
+            # time.sleep(dt)
+            if done:
+                break
+
+    print(returns)
+else:
+    # evaluate system by recording performance.
+    if not os.path.exists('output'):
+        os.makedirs('output')
+    fname = 'output/results_integ_noise{}_s{}'.format(args.noise, args.env_seed)
+    if args.normalize_action:
+        fname += '_norm_action'
+    if args.use_cleanup_gt:
+        fname += '_cleanup_gt'
+    if args.use_localization_gt:
+        fname += '_loc_gt'
+    fname += '.npz'
+    n_mazes = 10  # number of mazes to evaluate on
+    num_episodes = 100  # number of episodes per maze
+    returns = np.zeros((n_mazes, num_episodes,))
+    start_locs = np.zeros((n_mazes, num_episodes, 2))
+    goal_locs = np.zeros((n_mazes, num_episodes, 2))
+    if args.record_trajectories:
+        # initialize to -1, so negative entries mean the goal has already been reached
+        trajectories = np.ones((n_mazes, num_episodes, params['episode_length'], 2))*-1
+    for maze_index in range(n_mazes):
+        print("Maze {} of {}".format(maze_index + 1, n_mazes))
+        # Generate a new environment object for each maze
+        map_array = coarse_mazes[maze_index, :, :]
+        object_locations = OrderedDict()
+        vocab = {}
+        for i in range(n_goals):
+            sp_name = possible_objects[i]
+            if args.use_dataset_goals:
+                object_locations[sp_name] = goals_scaled[args.maze_index, i]  # using goal locations from the dataset
+            else:
+                # If set to None, the environment will choose a random free space on init
+                object_locations[sp_name] = None
+            # vocab[sp_name] = spa.SemanticPointer(ssp_dim)
+            vocab[sp_name] = nengo_spa.SemanticPointer(data=np.random.uniform(-1, 1, size=args.dim)).normalized()
+        env = GridWorldEnv(
+            map_array=map_array,
+            object_locations=object_locations,  # object locations explicitly chosen so a fixed SSP memory can be given
+            observations=obs_dict,
+            movement_type=params['movement_type'],
+            max_lin_vel=params['max_lin_vel'],
+            max_ang_vel=params['max_ang_vel'],
+            continuous=params['continuous'],
+            max_steps=params['episode_length'],
+            fixed_episode_length=params['fixed_episode_length'],
+            wall_penalty=params['wall_penalty'],
+            movement_cost=params['movement_cost'],
+            goal_reward=params['goal_reward'],
+            dt=params['dt'],
+            screen_width=300,
+            screen_height=300,
+            debug_ghost=True,
+            seed=args.env_seed + maze_index,
         )
 
-        if args.ghost != 'none' and False:
-            if args.ghost == 'trajectory_loc':
-                # localization ghost
-                agent_ssp = agent.localization_network(
-                    inputs=(torch.cat([velocity, distances, map_id], dim=1),),
-                    initial_ssp=agent.agent_ssp
-                ).squeeze(0)
-            elif args.ghost == 'snapshot_loc':
-                # snapshot localization ghost
-                agent_ssp = agent.snapshot_localization_network(torch.cat([distances, map_id], dim=1))
-            agent_loc = ssp_to_loc(agent_ssp.squeeze(0).detach().numpy(), heatmap_vectors, xs, ys)
-            # Scale to env coordinates, from (-5,5) to (0,13)
-            agent_loc = ((agent_loc - xs[0]) / limit_range) * coarse_size
-            env.render_ghost(x=agent_loc[0], y=agent_loc[1])
+        # Fill the item memory with the correct SSP for remembering the goal locations
+        item_memory = nengo_spa.SemanticPointer(data=np.zeros((args.dim,)))
 
-        if args.normalize_action:
-            mag = np.linalg.norm(action)
-            if mag > 0.001:
-                action = action / np.linalg.norm(action)
+        for i in range(n_goals):
+            sp_name = possible_objects[i]
+            x_env, y_env = env.object_locations[sp_name][[0, 1]]
 
-        # Add small amount of noise to the action
-        action += np.random.normal(size=2) * args.noise
+            # Need to scale to SSP coordinates
+            # Env is 0 to 13, SSP is -5 to 5
+            x = ((x_env - 0) / coarse_size) * limit_range + xs[0]
+            y = ((y_env - 0) / coarse_size) * limit_range + ys[0]
 
-        obs, reward, done, info = env.step(action)
-        # print(obs)
-        returns[e] += reward
-        # if reward != 0:
-        #    print(reward)
-        # time.sleep(dt)
-        if done:
-            break
+            item_memory += vocab[sp_name] * encode_point(x, y, x_axis_sp, y_axis_sp)
+        # item_memory.normalize()
+        item_memory = item_memory.normalized()
 
-print(returns)
+        # the unsqueeze is to add the batch dimension
+        map_id = torch.Tensor(maze_sps[maze_index, :]).unsqueeze(0)
+
+        for e in range(num_episodes):
+            obs = env.reset(goal_distance=params['goal_distance'])
+
+            # record starting position and goal for this episode
+            start_locs[maze_index, e, :] = env.state[[0, 1]]
+            goal_locs[maze_index, e, :] = env.goal_state[[0, 1]]
+
+            # env.goal_object is the string name for the goal
+            # env.goal_state[[0, 1]] is the 2D location for that goal
+            semantic_goal = vocab[env.goal_object]
+
+            distances = torch.Tensor(obs).unsqueeze(0)
+            agent.localize(
+                distances,
+                map_id,
+                env,
+                use_localization_gt=args.use_localization_gt
+            )
+            action = np.zeros((2,))
+            for s in range(params['episode_length']):
+                # env.render()
+                # env._render_extras()
+
+                distances = torch.Tensor(obs).unsqueeze(0)
+                velocity = torch.Tensor(action).unsqueeze(0)
+
+                # TODO: need to give the semantic goal and the maze_id to the agent
+                # action = agent.act(obs)
+                action = agent.act(
+                    distances=distances,
+                    velocity=velocity,  # TODO: use real velocity rather than action, because of hitting walls
+                    semantic_goal=semantic_goal,
+                    map_id=map_id,
+                    item_memory=item_memory,
+
+                    env=env,  # only used for some ground truth options
+                    use_cleanup_gt=args.use_cleanup_gt,
+                    use_localization_gt=args.use_localization_gt,
+                )
+
+                if args.normalize_action:
+                    mag = np.linalg.norm(action)
+                    if mag > 0.001:
+                        action = action / np.linalg.norm(action)
+
+                # Add small amount of noise to the action
+                action += np.random.normal(size=2) * args.noise
+
+                obs, reward, done, info = env.step(action)
+                returns[maze_index, e] += reward
+
+                if args.record_trajectories:
+                    trajectories[maze_index, e, s, :] = env.state[[0, 1]]
+
+                if done:
+                    break
+
+            print("Maze {}, EP {}, Ret: {}".format(maze_index + 1, e + 1, returns[maze_index, e]))
+
+    if args.record_trajectories:
+        np.savez(
+            fname,
+            returns=returns,
+            start_locs=start_locs,
+            goal_locs=goal_locs,
+            trajectories=trajectories,
+        )
+    else:
+        np.savez(
+            fname,
+            returns=returns,
+            start_locs=start_locs,
+            goal_locs=goal_locs,
+        )
+
