@@ -1601,21 +1601,21 @@ class SnapshotValidationSet(object):
             if self.spatial_encoding == 'ssp':
                 print("computing prediction locations")
                 predictions[:, :] = ssp_to_loc_v(
-                    ssp_pred.detach().numpy()[:, :],
+                    ssp_pred.detach().cpu().numpy()[:, :],
                     self.heatmap_vectors, self.xs, self.ys
                 )
 
                 print("computing ground truth locations")
                 coords[:, :] = ssp_to_loc_v(
-                    ssp_outputs.detach().numpy()[:, :],
+                    ssp_outputs.detach().cpu().numpy()[:, :],
                     self.heatmap_vectors, self.xs, self.ys
                 )
 
             elif self.spatial_encoding == '2d':
                 print("copying prediction locations")
-                predictions[:, :] = ssp_pred.detach().numpy()[:, :]
+                predictions[:, :] = ssp_pred.detach().cpu().numpy()[:, :]
                 print("copying ground truth locations")
-                coords[:, :] = ssp_outputs.detach().numpy()[:, :]
+                coords[:, :] = ssp_outputs.detach().cpu().numpy()[:, :]
 
             # Get a measure of error in the output coordinate space
             coord_rmse = np.sqrt((np.linalg.norm(predictions - coords, axis=1)**2).mean())
