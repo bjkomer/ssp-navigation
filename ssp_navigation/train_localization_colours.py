@@ -73,6 +73,7 @@ parser.add_argument('--tile-mazes', action='store_true', help='put all mazes int
 parser.add_argument('--connected-tiles', action='store_true', help='all mazes in the same space and connected')
 
 parser.add_argument('--optimizer', type=str, default='adam', choices=['rmsprop', 'adam', 'sgd'])
+parser.add_argument('--dropout-fraction', type=float, default=0.1)
 
 parser.add_argument('--hidden-size', type=int, default=2048)
 parser.add_argument('--n-hidden-layers', type=int, default=1, help='Number of hidden layers in the model')
@@ -178,7 +179,8 @@ model = MLP(
     input_size=n_sensors*4 + n_maze_dim,
     hidden_size=args.hidden_size,
     output_size=args.dim,
-    n_layers=args.n_hidden_layers
+    n_layers=args.n_hidden_layers,
+    dropout_fraction=args.dropout_fraction,
 )
 
 model.to(device)
