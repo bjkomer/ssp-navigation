@@ -178,7 +178,7 @@ n_maze_dim = id_size  # args.maze_id_dim #0
 model = MLP(
     input_size=n_sensors*4 + n_maze_dim,
     hidden_size=args.hidden_size,
-    output_size=args.dim,
+    output_size=repr_dim,
     n_layers=args.n_hidden_layers,
     dropout_fraction=args.dropout_fraction,
 )
@@ -203,7 +203,7 @@ dataset_rng = np.random.RandomState(seed=args.dataset_seed)
 trainloader, testloader = coloured_localization_encoding_train_test_loaders(
     data,
     encoding_func=encoding_func,
-    encoding_dim=args.dim,
+    encoding_dim=repr_dim,
     maze_sps=maze_sps,
     n_train_samples=args.n_train_samples,
     n_test_samples=args.n_test_samples,
