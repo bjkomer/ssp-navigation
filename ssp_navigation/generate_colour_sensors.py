@@ -161,7 +161,10 @@ sensor_path = os.path.join(args.save_dir, base_folder_name, sensor_folder_name)
 if not os.path.exists(sensor_path):
     os.makedirs(sensor_path)
 
-sensor_name = os.path.join(sensor_path, 'coloured_sensor_dataset.npz')
+if args.samples_per_maze == 0:
+    sensor_name = os.path.join(sensor_path, 'coloured_sensor_dataset_test.npz')
+else:
+    sensor_name = os.path.join(sensor_path, 'coloured_sensor_dataset.npz')
 
 base_data = np.load(base_name)
 

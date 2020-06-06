@@ -1648,6 +1648,7 @@ class SnapshotValidationSet(object):
                 )
 
                 writer.add_figure("ground truth", fig_truth, epoch)
+        return coord_rmse
 
 
 class LocalizationTrajectoryDataset(data.Dataset):
@@ -1992,6 +1993,86 @@ def snapshot_localization_encoding_train_test_loaders(
 
             # for the 2D encoding method
             pos_outputs[i, :] = np.array([xs[xi], ys[yi]])
+
+        dataset = LocalizationSnapshotDataset(
+            sensor_inputs=sensor_inputs,
+            maze_ids=maze_ids,
+            ssp_outputs=encoding_outputs,
+        )
+
+        if test_set == 0:
+            trainloader = torch.utils.data.DataLoader(
+                dataset, batch_size=batch_size, shuffle=True, num_workers=0,
+            )
+        elif test_set == 1:
+            testloader = torch.utils.data.DataLoader(
+                dataset, batch_size=n_samples, shuffle=True, num_workers=0,
+            )
+
+    return trainloader, testloader
+
+
+def coloured_localization_encoding_train_test_loaders(
+        data, encoding_func, encoding_dim, maze_sps, n_train_samples=1000, n_test_samples=1000, batch_size=10, n_mazes_to_use=0, rng=np.random
+):
+
+    # shape is (n_mazes, n_samples, n_sensors, 4)
+    dist_sensors = data['dist_sensors']
+
+    total_dataset_samples = dist_sensors.shape[1]
+
+    # shape is (n_mazes, n_samples, 2)
+    locations = data['locations']
+
+    n_sensors = dist_sensors.shape[2]
+
+    n_mazes = dist_sensors.shape[0]
+
+    for test_set, n_samples in enumerate([n_train_samples, n_test_samples]):
+
+        sensor_inputs = np.zeros((n_samples, n_sensors*4))
+
+        encoding_outputs = np.zeros((n_samples, encoding_dim))
+
+        # for the 2D encoding method
+        # pos_outputs = np.zeros((n_samples, 2))
+
+        if maze_sps is not None:
+            maze_ids = np.zeros((n_samples, maze_sps.shape[1]))
+        else:
+            maze_ids = None
+
+        if n_train_samples + n_test_samples < total_dataset_samples:
+            if test_set:
+                sample_indices = rng.randint(low=n_train_samples, high=n_train_samples+n_test_samples, size=(n_test_samples,))
+            else:
+                sample_indices = rng.randint(low=0, high=n_train_samples, size=(n_train_samples,))
+        else:
+            if test_set:
+                sample_indices = rng.randint(low=0, high=total_dataset_samples, size=(n_train_samples,))
+            else:
+                sample_indices = rng.randint(low=0, high=total_dataset_samples, size=(n_train_samples,))
+
+        for i in range(n_samples):
+            # choose random maze and position in maze
+            if n_mazes_to_use <= 0:
+                # use all available mazes
+                maze_ind = np.random.randint(low=0, high=n_mazes)
+            else:
+                # use only some mazes
+                maze_ind = np.random.randint(low=0, high=n_mazes_to_use)
+
+            sensor_inputs[i, :] = dist_sensors[maze_ind, sample_indices[i], :, :].flatten()
+
+            loc = locations[maze_ind, sample_indices[i], :]
+            encoding_outputs[i, :] = encoding_func(loc[0], loc[1])
+
+            # # one-hot maze ID
+            # maze_ids[i, maze_ind] = 1
+
+            if maze_sps is not None:
+                # supports both one-hot and random-sp
+                maze_ids[i, :] = maze_sps[maze_ind, :]
 
         dataset = LocalizationSnapshotDataset(
             sensor_inputs=sensor_inputs,
