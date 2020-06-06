@@ -1554,7 +1554,7 @@ class TrajectoryValidationSet(object):
 
 class SnapshotValidationSet(object):
 
-    def __init__(self, dataloader, heatmap_vectors, xs, ys, spatial_encoding='ssp'):
+    def __init__(self, dataloader, heatmap_vectors, xs, ys, device, spatial_encoding='ssp'):
 
         self.dataloader = dataloader
         self.heatmap_vectors = heatmap_vectors
@@ -1563,6 +1563,7 @@ class SnapshotValidationSet(object):
         self.spatial_encoding = spatial_encoding
         self.cosine_criterion = nn.CosineEmbeddingLoss()
         self.mse_criterion = nn.MSELoss()
+        self.device = device
 
     def run_eval(self, model, writer, epoch):
 
@@ -1574,10 +1575,17 @@ class SnapshotValidationSet(object):
                 combined_inputs, ssp_outputs = data
 
                 # ssp_pred = model(sensor_inputs, map_ids)
-                ssp_pred = model(combined_inputs)
+                ssp_pred = model(combined_inputs.to(self.device))
 
-                cosine_loss = self.cosine_criterion(ssp_pred, ssp_outputs, torch.ones(ssp_pred.shape[0]))
-                mse_loss = self.mse_criterion(ssp_pred, ssp_outputs)
+                cosine_loss = self.cosine_criterion(
+                    ssp_pred,
+                    ssp_outputs.to(self.device),
+                    torch.ones(ssp_pred.shape[0]).to(self.device)
+                )
+                mse_loss = self.mse_criterion(
+                    ssp_pred,
+                    ssp_outputs.to(self.device)
+                )
 
                 print("test mse loss", mse_loss.data.item())
                 print("test cosine loss", mse_loss.data.item())

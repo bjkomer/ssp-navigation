@@ -217,6 +217,7 @@ validation_set = SnapshotValidationSet(
     heatmap_vectors=heatmap_vectors,
     xs=xs,
     ys=ys,
+    device=device,
     spatial_encoding='ssp',  # Note: this is actually generic and represents any non-2d encoding
 )
 
@@ -263,10 +264,14 @@ for epoch in range(n_epochs):
         # model.zero_grad()
 
         # ssp_pred = model(sensor_inputs, maze_ids)
-        ssp_pred = model(combined_inputs)
+        ssp_pred = model(combined_inputs.to(device))
 
-        cosine_loss = cosine_criterion(ssp_pred, ssp_outputs, torch.ones(ssp_pred.shape[0]))
-        mse_loss = mse_criterion(ssp_pred, ssp_outputs)
+        cosine_loss = cosine_criterion(
+            ssp_pred,
+            ssp_outputs.to(device),
+            torch.ones(ssp_pred.shape[0]).to(device)
+        )
+        mse_loss = mse_criterion(ssp_pred, ssp_outputs.to(device))
 
         loss = cosine_loss + mse_loss
 
