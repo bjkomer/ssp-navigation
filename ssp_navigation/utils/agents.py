@@ -175,6 +175,7 @@ class IntegSystemAgent(object):
         # need a reasonable default for the agent ssp
         # maybe use a snapshot localization network that only uses distance sensors to initialize it?
         self.agent_ssp = None
+        self.clean_agent_ssp = None
 
         # fraction of weighting on new sensor measurement
         # old measurement will be (1 - ratio)
@@ -236,7 +237,8 @@ class IntegSystemAgent(object):
 
             if use_cleanup_gt:
                 goal_ssp = self.cleanup_gt(env)
-                agent_ssp = self.agent_ssp.unsqueeze(0)
+                # NOTE: should the agent SSP be cleaned as well?
+                self.clean_agent_ssp = self.agent_ssp.unsqueeze(0)
             else:
                 noisy_goal_ssp = item_memory *~ semantic_goal
                 goal_ssp = self.cleanup_network(torch.Tensor(noisy_goal_ssp.v).unsqueeze(0))
@@ -245,14 +247,14 @@ class IntegSystemAgent(object):
 
                 if not use_localization_gt:
                     # clean up the agent estimate for use in the network
-                    agent_ssp = self.cleanup_network(torch.Tensor(self.agent_ssp).unsqueeze(0))
-                    agent_ssp = agent_ssp / float(np.linalg.norm(agent_ssp.detach().numpy()))
+                    self.clean_agent_ssp = self.cleanup_network(torch.Tensor(self.agent_ssp).unsqueeze(0))
+                    self.clean_agent_ssp = self.clean_agent_ssp / float(np.linalg.norm(self.clean_agent_ssp.detach().numpy()))
                 else:
-                    agent_ssp = self.agent_ssp.unsqueeze(0)
+                    self.clean_agent_ssp = self.agent_ssp.unsqueeze(0)
 
             vel_action = self.policy_network(
                 # torch.cat([map_id, self.agent_ssp, goal_ssp], dim=1)
-                torch.cat([map_id, agent_ssp, goal_ssp], dim=1)
+                torch.cat([map_id, self.clean_agent_ssp, goal_ssp], dim=1)
             ).squeeze(0).detach().numpy()
 
             # TODO: possibly do a transform on the action output if the environment needs it
