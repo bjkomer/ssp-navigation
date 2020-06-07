@@ -28,7 +28,7 @@ parser.add_argument('--cleanup-network', type=str,
                     default='networks/cleanup_network.pt',
                     help='SSP cleanup network')
 parser.add_argument('--localization-network', type=str,
-                    default='networks/localization_network.pt',
+                    default='networks/localization_network_colour_10maze_512dim_2048hs_st.pt',
                     help='localization from distance sensors and context')
 parser.add_argument('--policy-network', type=str,
                     default='networks/policy_network_10maze_512dim_2048hs_st.pt',
@@ -54,7 +54,9 @@ parser.add_argument('--new-sensor-ratio', default=0.1, help='weighting on new se
 
 # network parameters
 parser.add_argument('--cleanup-hs', type=int, default=512, help='hidden size for cleanup')
-parser.add_argument('--localization-hs', type=int, default=512, help='hidden size for localization')
+parser.add_argument('--localization-hs', type=int, default=2048, help='hidden size for localization')
+parser.add_argument('--n-hidden-layers-localization', type=int, default=1, help='number of hidden layers in the localization network')
+parser.add_argument('--localization-dropout-fraction', type=float, default=0.1)
 parser.add_argument('--policy-hs', type=int, default=2048, help='hidden size for policy')
 parser.add_argument('--n-hidden-layers-policy', type=int, default=1, help='number of hidden layers in the policy network')
 parser.add_argument('--policy-dropout-fraction', type=float, default=0.1)
@@ -63,7 +65,39 @@ parser.add_argument('--evaluate', action='store_true', help='if set, evaluate sy
 parser.add_argument('--record-trajectories', action='store_true', help='if set, record agent position at every step')
 parser.add_argument('--env-seed', type=int, default=13)
 
-parser = add_encoding_params(parser)
+# encoding parameters with correct defaults for this task
+parser.add_argument('--spatial-encoding', type=str, default='sub-toroid-ssp',
+                    choices=[
+                        'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
+                        'sub-toroid-ssp', 'proj-ssp', 'var-sub-toroid-ssp',
+                        'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
+                        'trig', 'random-trig', 'random-rotated-trig', 'random-proj', 'legendre',
+                        'learned', 'learned-normalized', 'frozen-learned', 'frozen-learned-normalized',
+                        'pc-gauss', 'pc-dog', 'tile-coding'
+                    ],
+                    help='coordinate encoding for agent location and goal')
+parser.add_argument('--freq-limit', type=float, default=10,
+                    help='highest frequency of sine wave for random-trig encodings')
+parser.add_argument('--hex-freq-coef', type=float, default=2.5,
+                    help='constant to scale frequencies by for hex-trig')
+parser.add_argument('--pc-gauss-sigma', type=float, default=0.75, help='sigma for the gaussians')
+parser.add_argument('--pc-diff-sigma', type=float, default=0.5, help='sigma for subtracted gaussian in DoG')
+parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1, 2, 3],
+                    help='pc centers. 0: random uniform. 1: hilbert curve. 2: evenly spaced grid. 3: hex grid')
+parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
+parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
+parser.add_argument('--ssp-scaling', type=float, default=0.5)
+parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum plane wave scale')
+parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
+parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
+parser.add_argument('--n-proj', type=int, default=3, help='projection dimension for sub toroids')
+parser.add_argument('--scale-ratio', type=float, default=0, help='ratio between sub toroid scales')
+
+parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the semantic pointers')
+parser.add_argument('--limit', type=float, default=5, help='The limits of the space')
+parser.add_argument('--seed', type=int, default=13)
+
+# parser = add_encoding_params(parser)
 
 args = parser.parse_args()
 
@@ -100,10 +134,26 @@ map_id = torch.Tensor(maze_sps[args.maze_index, :]).unsqueeze(0)
 
 n_sensors = 36
 
+colour_centers = np.array([
+    [3, 3],
+    [10, 4],
+    [7, 7],
+])
+
+
+def colour_func(x, y, sigma=7):
+    ret = np.zeros((3, ))
+
+    for c in range(3):
+        ret[c] = np.exp(-((colour_centers[c, 0] - x) ** 2 + (colour_centers[c, 1] - y) ** 2) / (sigma**2))
+
+    return ret
+
 params = {
     'continuous': True,
     'fov': 360,
     'n_sensors': n_sensors,
+    'colour_func': colour_func,
     'max_sensor_dist': 10,
     'normalize_dist_sensors': False,
     'movement_type': 'holonomic',
@@ -254,10 +304,17 @@ policy_network.load_state_dict(
 )
 policy_network.eval()
 
-localization_network = FeedForward(
-    input_size=n_sensors + args.maze_id_dim,
+# localization_network = FeedForward(
+#     input_size=n_sensors + args.maze_id_dim,
+#     hidden_size=args.localization_hs,
+#     output_size=args.dim,
+# )
+localization_network = MLP(
+    input_size=n_sensors * 4 + args.maze_id_dim,
     hidden_size=args.localization_hs,
     output_size=args.dim,
+    n_layers=args.n_hidden_layers_localization,
+    dropout_fraction=args.localization_dropout_fraction,
 )
 if not args.use_localization_gt:
     localization_network.load_state_dict(
