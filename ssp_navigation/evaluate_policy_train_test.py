@@ -247,7 +247,7 @@ np.random.seed(args.seed)
 # avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = validation_set.get_rmse(model)
 # train_r2, test_r2 = validation_set.get_r2_score(model)
 
-avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2 = validation_set.get_r2_and_rmse(model)
+avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2, avg_mse_loss_train, avg_mse_loss_test = validation_set.get_r2_and_rmse(model)
 
 # Keep track of global and local RMSE separately for connected tiles
 if args.connected_tiles:
@@ -269,8 +269,8 @@ if args.connected_tiles:
     )
 else:
     df = pd.DataFrame(
-        data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2]],
-        columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE', 'Train R2', 'R2'],
+        data=[[avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2, avg_mse_loss_train, avg_mse_loss_test]],
+        columns=['Train RMSE', 'Train Angular RMSE', 'RMSE', 'Angular RMSE', 'Train R2', 'R2', 'Train Loss', 'Test Loss'],
     )
 
 df['Dimensionality'] = args.dim

@@ -784,6 +784,9 @@ class PolicyEvaluation(object):
         TODO: have option for normalized 2D angles as well
         """
 
+        # for recording loss value as well
+        mse_criterion = nn.MSELoss()
+
         # print(len(self.trainloader))
         # print(self.n_train_samples)
         #
@@ -797,10 +800,13 @@ class PolicyEvaluation(object):
             n_batches = 0
             rmse_train = 0
             angle_rmse_train = 0
+            mse_loss_train = 0
             for i, data in enumerate(self.trainloader):
                 maze_loc_goal_ssps, directions, locs, goals = data
 
                 outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                mse_loss = mse_criterion(outputs, directions)
 
                 directions_pred[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = outputs.detach().cpu().numpy()
                 directions_true[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = directions.detach().cpu().numpy()
@@ -813,10 +819,12 @@ class PolicyEvaluation(object):
 
                 rmse_train += rmse
                 angle_rmse_train += angle_rmse
+                mse_loss_train += mse_loss.data.item()
                 n_batches += 1
 
             avg_rmse_train = rmse_train / n_batches
             avg_angle_rmse_train = angle_rmse_train / n_batches
+            avg_mse_loss_train = mse_loss_train / n_batches
 
         train_r2 = r2_score(directions_true, directions_pred)
 
@@ -827,10 +835,13 @@ class PolicyEvaluation(object):
             n_batches = 0
             rmse_test = 0
             angle_rmse_test = 0
+            mse_loss_test = 0
             for i, data in enumerate(self.testloader):
                 maze_loc_goal_ssps, directions, locs, goals = data
 
                 outputs = model(maze_loc_goal_ssps.to(self.device))
+
+                mse_loss = mse_criterion(outputs, directions)
 
                 directions_pred[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = outputs.detach().cpu().numpy()
                 directions_true[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = directions.detach().cpu().numpy()
@@ -843,14 +854,16 @@ class PolicyEvaluation(object):
 
                 rmse_test += rmse
                 angle_rmse_test += angle_rmse
+                mse_loss_test += mse_loss.data.item()
                 n_batches += 1
 
             avg_rmse_test = rmse_test / n_batches
             avg_angle_rmse_test = angle_rmse_test / n_batches
+            avg_mse_loss_test = mse_loss_test / n_batches
 
         test_r2 = r2_score(directions_true, directions_pred)
 
-        return avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2
+        return avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2, avg_mse_loss_train, avg_mse_loss_test
 
     def get_global_rmse(self, model):
         """
