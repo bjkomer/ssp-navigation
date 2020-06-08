@@ -317,7 +317,7 @@ with torch.no_grad():
         print("copying ground truth locations")
         coords[:, :] = ssp_outputs.detach().cpu().numpy()[:, :]
         # un-normalizing
-        coords = (coords + 1) / 2. * (xs[-1] - xs[0]) + xs[-1]
+        coords = (coords + 1) / 2. * (limit_high - limit_low) - limit_low
 
     # Get a measure of error in the output coordinate space
     coord_rmse = np.sqrt((np.linalg.norm(predictions - coords, axis=1) ** 2).mean())
