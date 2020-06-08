@@ -1630,6 +1630,14 @@ class SnapshotValidationSet(object):
                 print("copying ground truth locations")
                 coords[:, :] = ssp_outputs.detach().cpu().numpy()[:, :]
 
+            elif self.spatial_encoding == '2d-normalized':
+                print("copying prediction locations")
+                predictions[:, :] = ssp_pred.detach().cpu().numpy()[:, :]
+                print("copying ground truth locations")
+                coords[:, :] = ssp_outputs.detach().cpu().numpy()[:, :]
+                # un-normalizing
+                coords = (coords + 1)/2. * (self.xs[-1] - self.xs[0]) + self.xs[-1]
+
             # Get a measure of error in the output coordinate space
             coord_rmse = np.sqrt((np.linalg.norm(predictions - coords, axis=1)**2).mean())
             writer.add_scalar('test_coord_rmse', coord_rmse, epoch)

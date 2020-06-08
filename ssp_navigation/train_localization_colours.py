@@ -212,13 +212,20 @@ trainloader, testloader = coloured_localization_encoding_train_test_loaders(
     rng=dataset_rng
 )
 
+if args.spatial_encoding == '2d':
+    spatial_decoding_type = '2d'
+elif args.spatial_encoding == '2d-normalized':
+    spatial_decoding_type = '2d-normalized'
+else:
+    spatial_decoding_type = 'ssp'  # Note: this is actually generic and represents any non-2d encoding
+
 validation_set = SnapshotValidationSet(
     dataloader=testloader,
     heatmap_vectors=heatmap_vectors,
     xs=xs,
     ys=ys,
     device=device,
-    spatial_encoding='ssp',  # Note: this is actually generic and represents any non-2d encoding
+    spatial_encoding=spatial_decoding_type,
 )
 
 params = vars(args)
