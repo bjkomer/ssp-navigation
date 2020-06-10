@@ -598,13 +598,14 @@ def encoding_func_from_model(path, dim=512):
     return encoding_func
 
 
-def get_encoding_heatmap_vectors(xs, ys, dim, encoding_func):
+def get_encoding_heatmap_vectors(xs, ys, dim, encoding_func, normalize=False):
     heatmap_vectors = np.zeros((len(xs), len(ys), dim))
     for i, x in enumerate(xs):
         for j, y in enumerate(ys):
             heatmap_vectors[i, j, :] = encoding_func(x=x, y=y)
-            # normalization required for non-ssp variants
-            heatmap_vectors[i, j, :] /= np.linalg.norm(heatmap_vectors[i, j, :])
+            # normalization required for using tensordot on non-ssp variants
+            if normalize:
+                heatmap_vectors[i, j, :] /= np.linalg.norm(heatmap_vectors[i, j, :])
     return heatmap_vectors
 
 

@@ -163,7 +163,7 @@ n_mazes = data['coarse_mazes'].shape[0]
 
 
 # Used for visualization of test set performance using pos = ssp_to_loc(sp, heatmap_vectors, xs, ys)
-heatmap_vectors = get_encoding_heatmap_vectors(xs, ys, repr_dim, encoding_func)
+heatmap_vectors = get_encoding_heatmap_vectors(xs, ys, repr_dim, encoding_func, normalize=False)
 
 # n_samples = args.n_samples
 batch_size = args.batch_size
@@ -266,7 +266,7 @@ else:
 
 eval_xs = np.linspace(limit_low, limit_high, args.heatmap_res)
 eval_ys = np.linspace(limit_low, limit_high, args.heatmap_res)
-eval_heatmap_vectors = get_encoding_heatmap_vectors(eval_xs, eval_ys, repr_dim, encoding_func)
+eval_heatmap_vectors = get_encoding_heatmap_vectors(eval_xs, eval_ys, repr_dim, encoding_func, normalize=True)
 
 with torch.no_grad():
     # Everything is in one batch, so this loop will only happen once
@@ -326,6 +326,8 @@ with torch.no_grad():
 
     # Get a measure of error in the output coordinate space
     coord_rmse = np.sqrt((np.linalg.norm(predictions - coords, axis=1) ** 2).mean())
+
+    print("coord rmse", coord_rmse)
 
 df = pd.DataFrame(
     data=[[coord_rmse, mse_loss.data.item(), cosine_loss.data.item()]],
