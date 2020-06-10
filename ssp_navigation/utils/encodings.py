@@ -603,6 +603,8 @@ def get_encoding_heatmap_vectors(xs, ys, dim, encoding_func):
     for i, x in enumerate(xs):
         for j, y in enumerate(ys):
             heatmap_vectors[i, j, :] = encoding_func(x=x, y=y)
+            # normalization required for non-ssp variants
+            heatmap_vectors[i, j, :] /= np.linalg.norm(heatmap_vectors[i, j, :])
     return heatmap_vectors
 
 
