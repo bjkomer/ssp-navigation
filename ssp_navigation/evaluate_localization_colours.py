@@ -301,13 +301,13 @@ with torch.no_grad():
         print("computing prediction locations")
         predictions[:, :] = ssp_to_loc_v(
             ssp_pred.detach().cpu().numpy()[:, :],
-            eval_heatmap_vectors, xs, ys
+            eval_heatmap_vectors, eval_xs, eval_ys
         )
 
         print("computing ground truth locations")
         coords[:, :] = ssp_to_loc_v(
             ssp_outputs.detach().cpu().numpy()[:, :],
-            eval_heatmap_vectors, xs, ys
+            eval_heatmap_vectors, eval_xs, eval_ys
         )
 
     elif spatial_decoding_type == '2d':
