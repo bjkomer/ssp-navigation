@@ -91,6 +91,8 @@ parser.add_argument('--dataset-seed', type=int, default=13)
 
 parser.add_argument('--out-file', type=str, default="", help='Output file name')
 
+parser.add_argument('--heatmap-res', type=int, default=128)
+
 args = parser.parse_args()
 
 dataset_file = os.path.join(args.dataset_dir, 'coloured_sensor_dataset_test.npz')
@@ -262,6 +264,9 @@ elif args.spatial_encoding == '2d-normalized':
 else:
     spatial_decoding_type = 'ssp'  # Note: this is actually generic and represents any non-2d encoding
 
+eval_xs = np.linspace(limit_low, limit_high, args.heatmap_res)
+eval_ys = np.linspace(limit_low, limit_high, args.heatmap_res)
+eval_heatmap_vectors = get_encoding_heatmap_vectors(eval_xs, eval_ys, repr_dim, encoding_func)
 
 with torch.no_grad():
     # Everything is in one batch, so this loop will only happen once
@@ -296,13 +301,13 @@ with torch.no_grad():
         print("computing prediction locations")
         predictions[:, :] = ssp_to_loc_v(
             ssp_pred.detach().cpu().numpy()[:, :],
-            heatmap_vectors, xs, ys
+            eval_heatmap_vectors, xs, ys
         )
 
         print("computing ground truth locations")
         coords[:, :] = ssp_to_loc_v(
             ssp_outputs.detach().cpu().numpy()[:, :],
-            heatmap_vectors, xs, ys
+            eval_heatmap_vectors, xs, ys
         )
 
     elif spatial_decoding_type == '2d':
