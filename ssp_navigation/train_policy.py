@@ -76,6 +76,7 @@ parser.add_argument('--dropout-fraction', type=float, default=0.0, help='Amount 
 parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--momentum', type=float, default=0.9)
+parser.add_argument('--weight-decay', type=float, default=0, help='strength of L2 weight normalization')
 parser.add_argument('--weight-histogram', action='store_true', help='Save histogram of the weights')
 parser.add_argument('--res', type=int, default=64, help='resolution of the fine maze')
 parser.add_argument('--dataset-dir', type=str, default='datasets/mixed_style_20mazes_50goals_64res_13size_13seed')
@@ -281,11 +282,11 @@ cosine_criterion = nn.CosineEmbeddingLoss()
 mse_criterion = nn.MSELoss()
 
 if args.optimizer == 'sgd':
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 elif args.optimizer == 'rmsprop':
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 elif args.optimizer == 'adam':
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 else:
     raise NotImplementedError
 

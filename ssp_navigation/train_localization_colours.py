@@ -33,6 +33,7 @@ parser.add_argument('--n-mazes', type=int, default=10, help='number of mazes to 
 parser.add_argument('--batch-size', type=int, default=32)
 parser.add_argument('--lr', type=float, default=1e-3, help='Step size multiplier in the RMSProp algorithm')
 parser.add_argument('--momentum', type=float, default=0.9, help='Momentum parameter of the RMSProp algorithm')
+parser.add_argument('--weight-decay', type=float, default=0, help='strength of L2 weight normalization')
 
 
 parser.add_argument('--spatial-encoding', type=str, default='ssp',
@@ -58,7 +59,7 @@ parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum pl
 parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
 parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
 parser.add_argument('--n-proj', type=int, default=3, help='projection dimension for sub toroids')
-parser.add_argument('--scale-ratio', type=float, default=(1 + 5 ** 0.5) / 2, help='ratio between sub toroid scales')
+parser.add_argument('--scale-ratio', type=float, default=0, help='ratio between sub toroid scales')
 parser.add_argument('--encoding-limit', type=float, default=0.0,
                     help='if set, use this upper limit to define the space that the encoding is optimized over')
 parser.add_argument('--dim', type=int, default=512, help='Dimensionality of encoding')
@@ -192,11 +193,11 @@ cosine_criterion = nn.CosineEmbeddingLoss()
 mse_criterion = nn.MSELoss()
 
 if args.optimizer == 'sgd':
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 elif args.optimizer == 'rmsprop':
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 elif args.optimizer == 'adam':
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 dataset_rng = np.random.RandomState(seed=args.dataset_seed)
 # TODO: update these to be more general
