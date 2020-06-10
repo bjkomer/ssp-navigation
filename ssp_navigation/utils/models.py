@@ -72,6 +72,16 @@ class MLP(nn.Module):
 
         return prediction
 
+    def forward_activations(self, inputs):
+        """Returns the last hidden layer activations as well as the prediction"""
+
+        features = self.dropout(F.relu(self.input_layer(inputs)))
+        for i in range(self.n_layers - 1):
+            features = self.dropout(F.relu(self.inner_layers[i](features)))
+        prediction = self.output_layer(features)
+
+        return prediction, features
+
 
 class LearnedEncoding(nn.Module):
 

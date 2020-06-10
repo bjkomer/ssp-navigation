@@ -375,6 +375,41 @@ class PolicyValidationSet(object):
 
         return ground_truth_images, prediction_images, overlay_images, rmses
 
+    def get_spatial_activations(self, model, dim, hidden_size, n_mazes, res=64):
+
+        feature_maps_null_goal = np.zeros((n_mazes, res * res, hidden_size))
+        feature_maps_null_start = np.zeros((n_mazes, res * res, hidden_size))
+
+        with torch.no_grad():
+            model.eval()
+            # Each maze is in one batch
+            for i, data in enumerate(self.vizloader):
+                print("Viz batch {} of {}".format(i + 1, self.n_mazes * self.n_goals))
+                maze_loc_goal_ssps, directions, locs, goals = data
+
+                # To help prevent bias to the 'bottom corner' zero out by using 1/dim in all elements instead of 0
+                # since that is the middle of the SSP space
+
+                # Zero out the goal, look at activations for every agent location
+                null_goal = maze_loc_goal_ssps.clone()
+                null_goal[:, 256+dim:] = 1./dim
+
+                outputs, features = model.forward_activations(null_goal.to(self.device))
+
+                feature_maps_null_goal[i, :, :] = features.detach().cpu().numpy()
+
+                # Zero out the start locations, use the dataset start locations as goal locations, to get
+                # activations for every goal location given an unknown start
+                null_start = maze_loc_goal_ssps.clone()
+                null_start[:, 256 + dim:] = null_start[:, 256:256 + dim]
+                null_start[:, 256:256 + dim] = 1. / dim
+
+                outputs, features = model.forward_activations(null_start.to(self.device))
+
+                feature_maps_null_start[i, :, :] = features.detach().cpu().numpy()
+
+        return feature_maps_null_goal, feature_maps_null_start
+
 
 def compute_rmse(directions_pred, directions_true, wall_overlay=None):
     """ Computes just the RMSE, without generating a figure """
