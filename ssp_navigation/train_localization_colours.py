@@ -17,6 +17,7 @@ from ssp_navigation.utils.training import SnapshotValidationSet, coloured_locali
 from ssp_navigation.utils.models import FeedForward, MLP
 from ssp_navigation.utils.encodings import get_encoding_function, get_encoding_heatmap_vectors
 import nengo.spa as spa
+import sys
 
 
 parser = argparse.ArgumentParser('Run 2D supervised localization experiment with coloured snapshots using pytorch')
@@ -100,6 +101,11 @@ if args.variant_subfolder != '':
     variant_folder = os.path.join(args.variant_subfolder, variant_folder)
 
 logdir = os.path.join(args.dataset_dir, 'coloured_snapshot_network', variant_folder)
+
+if os.path.exists(logdir):
+    print("Skipping, output already exists for:")
+    print(logdir)
+    sys.exit(0)
 
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
