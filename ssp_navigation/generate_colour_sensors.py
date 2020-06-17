@@ -166,11 +166,12 @@ if not os.path.exists(base_path):
 
 base_name = os.path.join(base_path, 'maze_dataset.npz')
 
-sensor_folder_name = 'coloured_{}mazes_{}sensors_{}fov_{}samples'.format(
+sensor_folder_name = 'coloured_{}mazes_{}sensors_{}fov_{}samples_colour_{}'.format(
     args.n_sensor_mazes,
     args.n_sensors,
     args.fov,
     args.samples_per_maze,
+    args.colour_func,
 )
 
 sensor_path = os.path.join(args.save_dir, base_folder_name, sensor_folder_name)
