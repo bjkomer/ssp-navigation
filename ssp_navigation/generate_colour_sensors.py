@@ -28,6 +28,8 @@ parser.add_argument('--max-dist', type=float, default=10, help='maximum distance
 parser.add_argument('--n-sensor-mazes', type=int, default=10)
 parser.add_argument('--samples-per-maze', type=int, default=100000, help='samples per maze, if zero, use a fine grid')
 
+parser.add_argument('--colour-func', type=str, default='many', choices=['basic', 'many'])
+
 args = parser.parse_args()
 
 
@@ -98,24 +100,39 @@ def free_space(pos, map_array, width, height):
     return map_array[x, y] == 0
 
 
-colour_centers = np.array([
-    # [3, 3],
-    # [10, 4],
-    # [2, 8],
-    [3, 3],
-    [10, 4],
-    [7, 7],
-])
+if args.colour_func == 'basic':
+    colour_centers = np.array([
+        # [3, 3],
+        # [10, 4],
+        # [2, 8],
+        [3, 3],
+        [10, 4],
+        [7, 7],
+    ])
 
-def colour_func(x, y, sigma=7):
-    ret = np.zeros((3, ))
+    def colour_func(x, y, sigma=7):
+        ret = np.zeros((3, ))
 
-    for c in range(3):
-        ret[c] = np.exp(-((colour_centers[c, 0] - x) ** 2 + (colour_centers[c, 1] - y) ** 2) / (sigma**2))
+        for c in range(3):
+            ret[c] = np.exp(-((colour_centers[c, 0] - x) ** 2 + (colour_centers[c, 1] - y) ** 2) / (sigma**2))
 
-    return ret
+        return ret
+elif args.colour_func == 'many':
+    rng_colour = np.random.RandomState(seed=13)
+    # colour_centers = rng_colour.uniform(low=0, high=13, size=(12, 2))
+    colour_centers = rng_colour.uniform(low=0, high=13, size=(18, 2))
 
-# testing the colour locations
+    def colour_func(x, y, sigma=3.5, height=.33):
+        ret = np.zeros((3,))
+
+        for c, colour_center in enumerate(colour_centers):
+            ret[c % 3] += height * np.exp(-((colour_center[0] - x) ** 2 + (colour_center[1] - y) ** 2) / (sigma ** 2))
+
+        ret = np.clip(ret, 0, 1)
+
+        return ret
+
+# # testing the colour locations
 # import matplotlib.pyplot as plt
 #
 # xs = np.linspace(0, 13, 128)
