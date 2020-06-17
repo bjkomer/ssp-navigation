@@ -2107,10 +2107,13 @@ def coloured_localization_encoding_train_test_loaders(
             maze_ids = None
 
         if n_train_samples + n_test_samples < total_dataset_samples:
+            # the dataset is already randomly ordered, so can just grab indices in order here for consistency
             if test_set:
-                sample_indices = rng.randint(low=n_train_samples, high=n_train_samples+n_test_samples, size=(n_test_samples,))
+                # sample_indices = rng.randint(low=n_train_samples, high=n_train_samples+n_test_samples, size=(n_test_samples,))
+                sample_indices = np.arange(n_train_samples, n_train_samples+n_test_samples)
             else:
-                sample_indices = rng.randint(low=0, high=n_train_samples, size=(n_train_samples,))
+                # sample_indices = rng.randint(low=0, high=n_train_samples, size=(n_train_samples,))
+                sample_indices = np.arange(0, n_train_samples)
         else:
             if test_set:
                 sample_indices = rng.randint(low=0, high=total_dataset_samples, size=(n_test_samples,))
