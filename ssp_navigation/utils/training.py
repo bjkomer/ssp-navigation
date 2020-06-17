@@ -2113,7 +2113,7 @@ def coloured_localization_encoding_train_test_loaders(
                 sample_indices = rng.randint(low=0, high=n_train_samples, size=(n_train_samples,))
         else:
             if test_set:
-                sample_indices = rng.randint(low=0, high=total_dataset_samples, size=(n_train_samples,))
+                sample_indices = rng.randint(low=0, high=total_dataset_samples, size=(n_test_samples,))
             else:
                 sample_indices = rng.randint(low=0, high=total_dataset_samples, size=(n_train_samples,))
 
