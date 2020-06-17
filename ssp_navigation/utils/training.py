@@ -1166,6 +1166,8 @@ def create_policy_dataloader(data, n_samples, maze_sps, args, encoding_func, til
 
 def create_train_test_dataloaders(
         data, n_train_samples, n_test_samples,
+        input_noise,
+        shift_noise,
         n_mazes,
         maze_sps, args, encoding_func,
         tile_mazes=False,
@@ -1281,14 +1283,20 @@ def create_train_test_dataloaders(
     goal_indices = np.arange(n_goals)
     rng.shuffle(goal_indices)
 
+    # extra noise on the training data
+    gauss_noise_loc = rng.standard_normal((n_train_samples, args.dim)) * input_noise
+    gauss_noise_goal = rng.standard_normal((n_train_samples, args.dim)) * input_noise
+    offset_noise_loc = rng.uniform(low=-shift_noise, high=shift_noise, size=(n_train_samples, 2))
+    offset_noise_goal = rng.uniform(low=-shift_noise, high=shift_noise, size=(n_train_samples, 2))
+
     for test_set, n_samples in enumerate([n_train_samples, n_test_samples]):
 
         if test_set == 0:
-            sample_indices = np.random.randint(low=0, high=n_train_start_split, size=n_samples)
-            sample_goal_indices = np.random.randint(low=0, high=n_train_goal_split, size=n_samples)
+            sample_indices = rng.randint(low=0, high=n_train_start_split, size=n_samples)
+            sample_goal_indices = rng.randint(low=0, high=n_train_goal_split, size=n_samples)
         elif test_set == 1:
-            sample_indices = np.random.randint(low=n_test_start_split, high=n_free_spaces, size=n_samples)
-            sample_goal_indices = np.random.randint(low=n_test_goal_split, high=n_goals, size=n_samples)
+            sample_indices = rng.randint(low=n_test_start_split, high=n_free_spaces, size=n_samples)
+            sample_goal_indices = rng.randint(low=n_test_goal_split, high=n_goals, size=n_samples)
 
         sample_locs = np.zeros((n_samples, 2))
         sample_goals = np.zeros((n_samples, 2))
@@ -1312,6 +1320,10 @@ def create_train_test_dataloaders(
             # 2D coordinate of the agent's current location
             loc_x = xs[x_index] + offsets[maze_index, 0]
             loc_y = ys[y_index] + offsets[maze_index, 1]
+
+            if test_set == 0:
+                loc_x += offset_noise_loc[n, 0]
+                loc_y += offset_noise_loc[n, 1]
 
             sample_locs[n, 0] = loc_x
             sample_locs[n, 1] = loc_y
@@ -1344,9 +1356,17 @@ def create_train_test_dataloaders(
 
                 sample_loc_sps[n, :] = encoding_func(x=loc_x, y=loc_y)
 
-                sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
+                if test_set == 0:
+                    sample_goals[n, :] += offset_noise_goal[n, :]
+                    sample_goal_sps[n, :] = encoding_func(x=sample_goals[n, 0], y=sample_goals[n, 1])
+                else:
+                    sample_goal_sps[n, :] = goal_sps[maze_index, goal_index, :]
 
                 sample_output_dirs[n, :] = solved_mazes[maze_index, goal_index, x_index, y_index, :]
+
+                if test_set == 0:
+                    sample_loc_sps[n, :] += gauss_noise_loc[n, :]
+                    sample_goal_sps[n, :] += gauss_noise_goal[n, :]
 
             if maze_sps is not None:
                 sample_maze_sps[n, :] = maze_sps[maze_index]

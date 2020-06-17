@@ -89,6 +89,11 @@ parser.add_argument('--logdir', type=str, default='policy',
                     help='Directory for saved model and tensorboard log, within dataset-dir')
 parser.add_argument('--load-saved-model', type=str, default='', help='Saved model to load from')
 
+parser.add_argument('--input-noise', type=float, default=0.0,
+                    help='Gaussian noise to add to the inputs when training')  # 0.01
+parser.add_argument('--shift-noise', type=float, default=0.0,
+                    help='Shifting coordinates before encoding by up to this amount as a form of noise')  # 0.2
+
 parser.add_argument('--gpu', type=int, default=-1,
                     help="set to an integer corresponding to the gpu to use. Set to -1 to use the CPU")
 
@@ -199,6 +204,8 @@ validation_set = PolicyValidationSet(
 
 trainloader, testloader = create_train_test_dataloaders(
     data=data, n_train_samples=args.n_train_samples, n_test_samples=args.n_test_samples,
+    input_noise=args.input_noise,
+    shift_noise=args.shift_noise,
     maze_sps=maze_sps, args=args, n_mazes=args.n_mazes,
     tile_mazes=args.tile_mazes,
     connected_tiles=args.connected_tiles,
