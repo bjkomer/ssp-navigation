@@ -1,9 +1,11 @@
 import argparse
 import matplotlib.pyplot as plt
 import seaborn as sns
+from statannot import add_stat_annotation
 import os
 import pandas as pd
 import numpy as np
+from scipy.stats import ttest_ind
 
 parser = argparse.ArgumentParser('Generate final version of figures for thesis')
 
@@ -11,7 +13,10 @@ parser.add_argument('--figure', type=str, default='capacity',
     choices=[
         'capacity', 'bounds', 'connected-tiled-maze', '100-tiled-maze', '25-tiled-maze', 'tiled-maze',
         'blocksmaze', 'small-env', 'large-env', 'network-size', 'hidden-size', 'dim', 'all-enc-256',
-        'scale-params', 'lr', 'batch-size', 'proj-exps',
+        'scale-params', 'lr', 'batch-size', 'proj-exps', 'integ-policy', 'all-enc-256-large-hs',
+        'proj-st-exps', 'proj-st-tiled-exps', 'localization', 'large-exp-tiled',
+        'hs-enc', 'lr-enc', 'bs-enc', 'nl-enc',
+        'learned-phi-reg',
     ]
 )
 
@@ -23,7 +28,7 @@ old_names = [
     'frozen-learned', 'frozen-learned-normalized',
     'random-proj', 'ind-ssp', '2d-normalized', 'legendre'
 ]
-if args.figure == 'all-enc-256':
+if args.figure == 'all-enc-256' or args.figure == 'all-enc-256-large-hs':
     # shortened names
     order = [
         'Hex SSP', 'SSP', 'RBF', 'TC', 'OH',
@@ -43,7 +48,8 @@ else:
 if args.figure == 'capacity':
     folders = ['eval_data_tt/final_capacity_exps/']
 elif args.figure == 'connected-tiled-maze':
-    folders = ['eval_data_tt/med_dim_connected_tiledmaze_more_samples_exps']
+    # folders = ['eval_data_tt/med_dim_connected_tiledmaze_more_samples_exps']
+    folders = ['eval_data_tt/large_dim_connected_tiledmaze_more_samples_exps']
 elif args.figure == '100-tiled-maze':
     folders = ['eval_data_tt/large_dim_100tiledmaze_more_samples_exps']
 elif args.figure == '25-tiled-maze':
@@ -67,14 +73,42 @@ elif args.figure == 'dim':
 elif args.figure == 'all-enc-256':
     # folders = ['eval_data_tt/med_dim_adam_exps']
     folders = ['eval_data_tt/med_dim_many_seeds']
+elif args.figure == 'all-enc-256-large-hs':
+    folders = ['eval_data_tt/final_larger_hidsize_med_dim', 'eval_data_tt/med_dim_many_seeds']
+    # folders = ['eval_data_tt/final_larger_hidsize_med_dim']
 elif args.figure == 'scale-params':
     folders = ['eval_data_tt/scale_params']
+    # folders = ['eval_data_tt/longer_scale_params']
+    folders = ['eval_data_tt/longer_tiled_scale_params']
 elif args.figure == 'lr':
     folders = ['eval_data_tt/lr_exps']
 elif args.figure == 'batch-size':
     folders = ['eval_data/batch_exps']
 elif args.figure == 'proj-exps':
     folders = ['eval_data_tt/ssp_proj_exps']
+elif args.figure == 'proj-st-exps':
+    folders = ['eval_data_tt/ssp_st_proj_exps']
+elif args.figure == 'proj-st-tiled-exps':
+    folders = ['eval_data_tt/ssp_st_proj_tiled_exps']
+elif args.figure == 'integ-policy':
+    folders = ['eval_data_tt/integ_policy_exps', 'eval_data_tt/integ_policy_longer_exps', 'eval_data_tt/integ_policy_much_longer_exps']
+    # folders = ['eval_data_tt/integ_policy_much_longer_exps']
+elif args.figure == 'localization':
+    # folders = ['eval_loc']
+    folders = ['eval_loc_longer']
+elif args.figure == 'large-exp-tiled':
+    folders = ['eval_data_tt/final_tiled_large_dim_many_seeds']
+elif args.figure == 'hs-enc':
+    folders = ['eval_data_tt/hp_exps/hidden_size']
+elif args.figure == 'lr-enc':
+    folders = ['eval_data_tt/hp_exps/lr']
+elif args.figure == 'bs-enc':
+    folders = ['eval_data_tt/hp_exps/batch_size']
+elif args.figure == 'nl-enc':
+    folders = ['eval_data_tt/hp_exps/nlayers']
+elif args.figure == 'learned-phi-reg':
+    # folders = ['eval_data_tt/learned_phi_regularized']
+    folders = ['eval_data_tt/learned_phi_regularized_longer']
 else:
     raise NotImplementedError
 
@@ -315,10 +349,27 @@ elif args.figure == 'scale-params':
     fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
     sns.barplot(data=df_ssp, x='SSP Scaling', y='Angular RMSE')
 
-    # fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
-    # sns.barplot(data=df_rbf, x='Sigma', y='Train Angular RMSE')
-    # fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
-    # sns.barplot(data=df_ssp, x='SSP Scaling', y='Train Angular RMSE')
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df_rbf, x='Sigma', y='Train Angular RMSE')
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df_ssp, x='SSP Scaling', y='Train Angular RMSE')
+
+    fix, ax = plt.subplots(1, 2, figsize=(8.5, 4), tight_layout=True, sharey=True)
+    sns.lineplot(data=df_ssp, x='SSP Scaling', y='Train Angular RMSE', ax=ax[0])
+    sns.lineplot(data=df_rbf, x='Sigma', y='Train Angular RMSE', ax=ax[1])
+
+    fix, ax = plt.subplots(1, 2, figsize=(8.5, 4), tight_layout=True, sharey=True)
+    sns.lineplot(data=df_ssp, x='SSP Scaling', y='Angular RMSE', ax=ax[0])
+    sns.lineplot(data=df_rbf, x='Sigma', y='Angular RMSE', ax=ax[1])
+
+    # fix, ax = plt.subplots(1, 2, figsize=(8.5, 4), tight_layout=True, sharey=True)
+    # sns.lineplot(data=df_ssp, x='SSP Scaling', y='Train Loss', ax=ax[0])
+    # sns.lineplot(data=df_rbf, x='Sigma', y='Train Loss', ax=ax[1])
+    #
+    # fix, ax = plt.subplots(1, 2, figsize=(8.5, 4), tight_layout=True, sharey=True)
+    # sns.lineplot(data=df_ssp, x='SSP Scaling', y='Test Loss', ax=ax[0])
+    # sns.lineplot(data=df_rbf, x='Sigma', y='Test Loss', ax=ax[1])
+
 elif args.figure == 'lr':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     # sns.barplot(data=df, x='Learning Rate', y='Angular RMSE')
@@ -331,11 +382,191 @@ elif args.figure == 'batch-size':
     ax.set(xscale='log')
 elif args.figure == 'proj-exps':
     df_st = df[df['Encoding'] == 'sub-toroid-ssp']
-    print(df_st)
+    df_var_st = df[df['Encoding'] == 'var-sub-toroid-ssp']
     df_proj = df[df['Encoding'] == 'proj-ssp']
     fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
-    sns.barplot(data=df_st, x='Encoding', y='Angular RMSE')
+    sns.barplot(data=df_st, x='Scale Ratio', y='Angular RMSE', hue='Proj Dim')
     fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
     sns.barplot(data=df_proj, x='Encoding', y='Angular RMSE', hue='Proj Dim')
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df_var_st, x='Encoding', y='Angular RMSE')
+elif args.figure == 'proj-st-exps' or args.figure == 'proj-st-tiled-exps':
+    df = df[df['Proj Dim'] != 50]
+    df = df.rename(columns={'Proj Dim': 'Sub-Toroid Dimension'})
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Sub-Toroid Dimension', y='Angular RMSE', palette='hls')
+    ax.set_ylim([0.35, 0.42])
+elif args.figure == 'integ-policy':
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Epochs')
+    df = df[df['Epochs'] >= 100]
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
+    df = df[df['Number of Mazes'] == 5]
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Dimensionality')
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Hidden Layer Size')
+    df = df[df['Hidden Layer Size'] >= 2048]
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Dimensionality')
+elif args.figure == 'all-enc-256-large-hs':
+    # df = df[df['Number of Mazes'] == 10]
+    df = df[df['Number of Mazes'] == 25]
+    # df = df[df['Number of Mazes'] == 50]
+    # order = [
+    #     'Hex SSP', 'SSP', 'Ind SSP',
+    #     'RBF', 'Legendre', 'Tile-Code', 'One-Hot',
+    #     'Learned', 'Learned Norm', '2D', '2D Norm',
+    #     'Random Proj', 'Random',
+    # ]
+    # TODO: organize colour palettes based on class of encoding
+    order = [
+        'Hex SSP', 'SSP', 'Ind SSP',
+        'RBF', 'LG',
+        'TC', 'OH',
+        'Learn', 'Learn-N', '2D', '2D-N',
+        'Rand-P', 'Rand',
+    ]
+    ssp_colour = sns.light_palette("orange")#sns.color_palette(, 3)
+    cont_colour = sns.light_palette("blue")
+    disc_colour = sns.light_palette("green")
+    learn_colour = sns.light_palette("purple")
+    rand_colour = sns.light_palette("red")
+
+    colours = [
+        ssp_colour[3], ssp_colour[4], ssp_colour[5],
+        cont_colour[3], cont_colour[4],
+        disc_colour[3], disc_colour[4],
+        learn_colour[2], learn_colour[3], learn_colour[4], learn_colour[5],
+        rand_colour[3], rand_colour[4],
+    ]
+
+    df_256 = df[df['Hidden Layer Size'] == 256]
+    df_512 = df[df['Hidden Layer Size'] == 512]
+    df_1024 = df[df['Hidden Layer Size'] == 1024]
+
+    # sns.palplot(colours)
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 4), tight_layout=True)
+    sns.barplot(data=df_256, x='Encoding', y='Angular RMSE', order=order, palette=colours)
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 4), tight_layout=True)
+    sns.barplot(data=df_512, x='Encoding', y='Angular RMSE', order=order, palette=colours)
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 4), tight_layout=True)
+    sns.barplot(data=df_1024, x='Encoding', y='Angular RMSE', order=order, palette=colours, ax=ax)
+
+    test_results = add_stat_annotation(
+        ax, data=df_1024, x='Encoding', y='Angular RMSE', order=order,
+        # box_pairs=[("Thur", "Fri"), ("Thur", "Sat"), ("Fri", "Sun")],
+        # test='Mann-Whitney',
+        comparisons_correction=None,
+        box_pairs=[("Ind SSP", "RBF"), ("Hex SSP", "RBF"), ("Hex SSP", "SSP"), ("SSP", "RBF"), ("SSP", "Ind SSP") ],
+        test='t-test_ind',
+        text_format='star',
+        loc='inside',
+        verbose=2
+    )
+
+
+    # Print mean and SD for each encoding
+    for enc in order:
+        mean = df_1024[df_1024['Encoding'] == enc]['Angular RMSE'].mean()
+        std = df_1024[df_1024['Encoding'] == enc]['Angular RMSE'].std()
+        print(enc)
+        print("Mean: {}".format(mean))
+        print("STD: {}".format(std))
+        print("")
+
+    # calculate p-values between top encodings with student t-test
+    data_hex_ssp = df_1024[df_1024['Encoding'] == 'Hex SSP']['Angular RMSE']
+    data_ssp = df_1024[df_1024['Encoding'] == 'SSP']['Angular RMSE']
+    data_ind_ssp = df_1024[df_1024['Encoding'] == 'Ind SSP']['Angular RMSE']
+    data_rbf = df_1024[df_1024['Encoding'] == 'RBF']['Angular RMSE']
+
+    print("Hex SSP to SSP")
+    stat, p = ttest_ind(data_hex_ssp, data_ssp)
+    print('stat=%.3f, p=%.5f' % (stat, p))
+    if p > 0.05:
+        print('Probably the same distribution')
+    else:
+        print('Probably different distributions')
+
+    print("Hex SSP to RBF")
+    stat, p = ttest_ind(data_hex_ssp, data_rbf)
+    print('stat=%.3f, p=%.5f' % (stat, p))
+    if p > 0.05:
+        print('Probably the same distribution')
+    else:
+        print('Probably different distributions')
+
+    print("Ind SSP to RBF")
+    stat, p = ttest_ind(data_ind_ssp, data_rbf)
+    print('stat=%.3f, p=%.5f' % (stat, p))
+    if p > 0.05:
+        print('Probably the same distribution')
+    else:
+        print('Probably different distributions')
+
+    print("SSP to RBF")
+    stat, p = ttest_ind(data_ssp, data_rbf)
+    print('stat=%.3f, p=%.5f' % (stat, p))
+    if p > 0.05:
+        print('Probably the same distribution')
+    else:
+        print('Probably different distributions')
+
+    print("SSP to Ind SSP")
+    stat, p = ttest_ind(data_ssp, data_ind_ssp)
+    print('stat=%.3f, p=%.5f' % (stat, p))
+    if p > 0.05:
+        print('Probably the same distribution')
+    else:
+        print('Probably different distributions')
+
+elif args.figure == 'localization':
+    # order = ['sub-toroid-ssp', 'Hex SSP', 'SSP', 'RBF', 'Legendre', 'Tile-Code', 'One-Hot', '2D', '2D Normalize', 'Random']
+    # order = ['sub-toroid-ssp', 'Hex SSP', 'SSP', 'RBF', 'Legendre', 'Tile-Code', 'One-Hot', '2D']
+    order = [
+        'SSP', 'Hex SSP',
+        'RBF', 'Legendre',
+        'One-Hot', 'Tile-Code',
+        '2D',# 'Random',
+    ]
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 4), tight_layout=True)
+    sns.barplot(data=df, x='Encoding', y='RMSE', order=order)
+    # fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    # sns.barplot(data=df, x='Encoding', y='MSE Loss', order=order)
+elif args.figure == 'large-exp-tiled':
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE')
+
+    df = df[df['Encoding'] == 'RBF']
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Hilbert Curve', y='Angular RMSE')
+elif args.figure == 'hs-enc':
+    fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
+    # sns.barplot(data=df, x='Hidden Layer Size', y='Angular RMSE', hue='Encoding', ax=ax)
+    sns.lineplot(data=df, x='Hidden Layer Size', y='Angular RMSE', hue='Encoding', ax=ax)
+    ax.set(xscale='log')
+elif args.figure == 'lr-enc':
+    fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
+    # sns.barplot(data=df, x='Learning Rate', y='Angular RMSE', hue='Encoding', ax=ax)
+    sns.lineplot(data=df, x='Learning Rate', y='Angular RMSE', hue='Encoding', ax=ax)
+    ax.set(xscale='log')
+elif args.figure == 'bs-enc':
+    fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
+    # sns.barplot(data=df, x='Batch Size', y='Angular RMSE', hue='Encoding', ax=ax)
+    sns.lineplot(data=df, x='Batch Size', y='Angular RMSE', hue='Encoding', ax=ax)
+    ax.set(xscale='log')
+elif args.figure == 'nl-enc':
+    fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
+    # sns.barplot(data=df, x='Hidden Layers', y='Angular RMSE', hue='Encoding', ax=ax)
+    sns.lineplot(data=df, x='Hidden Layers', y='Angular RMSE', hue='Encoding', ax=ax)
+elif args.figure == 'learned-phi-reg':
+    df_256 = df[df['Hidden Layer Size'] == 256]
+    # df_1024 = df[df['Hidden Layer Size'] == 1024]
+    fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
+    sns.barplot(data=df_256, x='Encoding', y='Angular RMSE', ax=ax)
+    # fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
+    # sns.barplot(data=df_1024, x='Encoding', y='Angular RMSE', ax=ax)
 sns.despine()
 plt.show()
