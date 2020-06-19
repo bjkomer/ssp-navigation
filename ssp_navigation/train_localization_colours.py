@@ -17,6 +17,7 @@ from ssp_navigation.utils.training import SnapshotValidationSet, coloured_locali
 from ssp_navigation.utils.models import FeedForward, MLP
 from ssp_navigation.utils.encodings import get_encoding_function, get_encoding_heatmap_vectors
 import nengo.spa as spa
+import pandas as pd
 import sys
 
 
@@ -88,6 +89,8 @@ parser.add_argument('--variant-subfolder', type=str, default='',
 parser.add_argument('--gpu', type=int, default=-1,
                     help="set to an integer corresponding to the gpu to use. Set to -1 to use the CPU")
 parser.add_argument('--dataset-seed', type=int, default=13)
+
+parser.add_argument('--out-file', type=str, default="", help='Output file name')
 
 args = parser.parse_args()
 
@@ -337,10 +340,11 @@ for epoch in range(n_epochs):
 
 
 print("Testing")
-coord_rmse = validation_set.run_eval(
+coord_rmse, avg_mse_loss, avg_cosine_loss = validation_set.run_eval(
     model=model,
     writer=writer,
     epoch=n_epochs,
+    ret_loss=True
 )
 
 
@@ -351,3 +355,62 @@ np.savez(
     os.path.join(save_dir, 'rmse.npz'),
     coord_rmse=coord_rmse,
 )
+
+if args.out_file == '':
+    print("No output file given for dataframe, skipping")
+else:
+    print("Generating data for:")
+    print(args.out_file)
+
+    df = pd.DataFrame(
+        data=[[coord_rmse, avg_mse_loss, avg_cosine_loss]],
+        columns=['RMSE', 'MSE Loss', 'Cosine Loss'],
+    )
+
+    df['Dimensionality'] = args.dim
+    df['Hidden Layer Size'] = args.hidden_size
+    df['Hidden Layers'] = args.n_hidden_layers
+    df['Encoding'] = args.spatial_encoding
+    df['Seed'] = args.seed
+    # df['Maze ID Type'] = args.maze_id_type
+    df['Maze ID Dim'] = args.maze_id_dim
+    df['Tile Mazes'] = args.tile_mazes
+    df['Dropout Fraction'] = args.dropout_fraction
+    df['SSP Scaling'] = args.ssp_scaling
+
+    if args.spatial_encoding == 'sub-toroid-ssp':
+        df['Proj Dim'] = args.n_proj
+        df['Scale Ratio'] = args.scale_ratio
+
+    if args.spatial_encoding == 'proj-ssp':
+        df['Proj Dim'] = args.n_proj
+
+    if args.spatial_encoding == 'grid-ssp':
+        df['Grid SSP Min'] = args.grid_ssp_min
+        df['Grid SSP Max'] = args.grid_ssp_max
+
+    if (args.spatial_encoding == 'pc-gauss') or (args.spatial_encoding == 'pc-dog'):
+        df['Hilbert Curve'] = args.hilbert_points
+        df['Sigma'] = args.pc_gauss_sigma
+        if args.spatial_encoding == 'pc-dog':
+            df['Diff Sigma'] = args.pc_diff_sigma
+
+    if (args.spatial_encoding == 'random-trig') or (args.spatial_encoding == 'random-rotated-trig'):
+        df['Freq Limit'] = args.freq_limit
+
+    # # Other differentiators
+    # df['Number of Mazes Tested'] = args.n_mazes_tested
+    # df['Number of Goals Tested'] = args.n_goals_tested
+
+    # Command line supplied tags
+    # df['Dataset'] = args.dataset
+    # df['Trained On'] = args.trained_on
+    df['Epochs'] = args.n_epochs
+    df['Batch Size'] = args.batch_size
+    df['Number of Mazes'] = args.n_mazes
+    df['Loss Function'] = args.loss_function
+    df['Learning Rate'] = args.lr
+    df['Momentum'] = args.momentum
+    df['Optimizer'] = args.optimizer
+
+    df.to_csv(args.out_file)

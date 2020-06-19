@@ -375,7 +375,7 @@ class PolicyValidationSet(object):
 
         return ground_truth_images, prediction_images, overlay_images, rmses
 
-    def get_spatial_activations(self, model, dim, hidden_size, n_mazes, res=64):
+    def get_spatial_activations(self, model, dim, iddim, hidden_size, n_mazes, res=64):
 
         feature_maps_null_goal = np.zeros((n_mazes, res * res, hidden_size))
         feature_maps_null_start = np.zeros((n_mazes, res * res, hidden_size))
@@ -392,7 +392,7 @@ class PolicyValidationSet(object):
 
                 # Zero out the goal, look at activations for every agent location
                 null_goal = maze_loc_goal_ssps.clone()
-                null_goal[:, 256+dim:] = 1./dim
+                null_goal[:, iddim+dim:] = 1./dim
 
                 outputs, features = model.forward_activations(null_goal.to(self.device))
 
@@ -401,8 +401,8 @@ class PolicyValidationSet(object):
                 # Zero out the start locations, use the dataset start locations as goal locations, to get
                 # activations for every goal location given an unknown start
                 null_start = maze_loc_goal_ssps.clone()
-                null_start[:, 256 + dim:] = null_start[:, 256:256 + dim]
-                null_start[:, 256:256 + dim] = 1. / dim
+                null_start[:, iddim + dim:] = null_start[:, iddim:iddim + dim]
+                null_start[:, iddim:iddim + dim] = 1. / dim
 
                 outputs, features = model.forward_activations(null_start.to(self.device))
 
@@ -1633,7 +1633,7 @@ class SnapshotValidationSet(object):
         self.mse_criterion = nn.MSELoss()
         self.device = device
 
-    def run_eval(self, model, writer, epoch):
+    def run_eval(self, model, writer, epoch, ret_loss=False):
 
         with torch.no_grad():
             # Everything is in one batch, so this loop will only happen once
@@ -1732,7 +1732,11 @@ class SnapshotValidationSet(object):
                 )
 
                 writer.add_figure("ground truth", fig_truth, epoch)
-        return coord_rmse
+
+        if ret_loss:
+            return coord_rmse, mse_loss.data.item(), cosine_loss.data.item()
+        else:
+            return coord_rmse
 
 
 class LocalizationTrajectoryDataset(data.Dataset):
