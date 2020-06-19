@@ -535,6 +535,7 @@ else:
     df['Loss Function'] = args.loss_function
     df['Learning Rate'] = args.lr
     df['Momentum'] = args.momentum
+    df['Weight Decay'] = args.weight_decay
     df['Optimizer'] = args.optimizer
     df['Input Noise'] = args.input_noise
     df['Shift Noise'] = args.shift_noise

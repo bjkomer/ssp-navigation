@@ -410,6 +410,7 @@ else:
     df['Number of Mazes'] = args.n_mazes
     df['Loss Function'] = args.loss_function
     df['Learning Rate'] = args.lr
+    df['Weight Decay'] = args.weight_decay
     df['Momentum'] = args.momentum
     df['Optimizer'] = args.optimizer
 
