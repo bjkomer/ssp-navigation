@@ -1284,8 +1284,12 @@ def create_train_test_dataloaders(
     rng.shuffle(goal_indices)
 
     # extra noise on the training data
-    gauss_noise_loc = rng.standard_normal((n_train_samples, args.dim)) * input_noise
-    gauss_noise_goal = rng.standard_normal((n_train_samples, args.dim)) * input_noise
+    if '2d' in args.spatial_encoding or 'learned' in args.spatial_encoding:
+        gauss_noise_loc = rng.standard_normal((n_train_samples, 2)) * input_noise
+        gauss_noise_goal = rng.standard_normal((n_train_samples, 2)) * input_noise
+    else:
+        gauss_noise_loc = rng.standard_normal((n_train_samples, args.dim)) * input_noise
+        gauss_noise_goal = rng.standard_normal((n_train_samples, args.dim)) * input_noise
     offset_noise_loc = rng.uniform(low=-shift_noise, high=shift_noise, size=(n_train_samples, 2))
     offset_noise_goal = rng.uniform(low=-shift_noise, high=shift_noise, size=(n_train_samples, 2))
 

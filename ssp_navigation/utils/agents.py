@@ -162,6 +162,7 @@ class IntegSystemAgent(object):
                  x_axis_vec,
                  y_axis_vec,
                  dt,
+                 spiking=False,
                  ):
 
         self.cleanup_network = cleanup_network
@@ -188,17 +189,24 @@ class IntegSystemAgent(object):
         self.yf = np.fft.fft(self.y_axis_vec)
         self.dt = dt
 
+        self.spiking = spiking
+
     def localize(self, distances, map_id, env, use_localization_gt=False):
 
         if use_localization_gt:
             self.agent_ssp = self.localization_gt(env)
         else:
-            # inputs = torch.cat([torch.Tensor(distances), torch.Tensor(map_id)])
-            inputs = torch.cat([distances, map_id], dim=1)  # dim is set to 1 because there is a batch dimension
-            self.agent_ssp = self.localization_network(inputs)
+            if self.spiking:
+                inputs = np.concatenate([distances.detach().numpy(), map_id.detach().numpy()], axis=1)
+                self.agent_ssp = self.localization_network.predict(inputs)
+                self.agent_ssp = torch.Tensor(self.agent_ssp / float(np.linalg.norm(self.agent_ssp)))
+            else:
+                # inputs = torch.cat([torch.Tensor(distances), torch.Tensor(map_id)])
+                inputs = torch.cat([distances, map_id], dim=1)  # dim is set to 1 because there is a batch dimension
+                self.agent_ssp = self.localization_network(inputs)
 
-            # normalize the agent SSP
-            self.agent_ssp = self.agent_ssp / float(np.linalg.norm(self.agent_ssp.detach().numpy()))
+                # normalize the agent SSP
+                self.agent_ssp = self.agent_ssp / float(np.linalg.norm(self.agent_ssp.detach().numpy()))
 
     def apply_velocity(self, ssp, vel):
         # extra zero index is because of the batch dimension
@@ -223,9 +231,16 @@ class IntegSystemAgent(object):
             if use_localization_gt:
                 self.agent_ssp = self.localization_gt(env).squeeze(0)
             else:
-                agent_ssp_estimate = self.localization_network(
-                        inputs=torch.cat([distances, map_id], dim=1)
-                    ).squeeze(0)
+                if self.spiking:
+                    inputs = np.concatenate([distances.detach().numpy(), map_id.detach().numpy()], axis=1)
+                    agent_ssp_estimate = torch.Tensor(self.localization_network.predict(inputs)).squeeze(0)
+                    agent_ssp_estimate = agent_ssp_estimate / float(np.linalg.norm(agent_ssp_estimate))
+                else:
+                    agent_ssp_estimate = self.localization_network(
+                            inputs=torch.cat([distances, map_id], dim=1)
+                        ).squeeze(0)
+
+                    agent_ssp_estimate = agent_ssp_estimate / float(np.linalg.norm(agent_ssp_estimate.detach().numpy()))
 
                 # TODO: do some appropriate mixing here
                 self.agent_ssp = torch.Tensor(
@@ -252,10 +267,21 @@ class IntegSystemAgent(object):
                 else:
                     self.clean_agent_ssp = self.agent_ssp.unsqueeze(0)
 
-            vel_action = self.policy_network(
-                # torch.cat([map_id, self.agent_ssp, goal_ssp], dim=1)
-                torch.cat([map_id, self.clean_agent_ssp, goal_ssp], dim=1)
-            ).squeeze(0).detach().numpy()
+            if self.spiking:
+                inputs = np.concatenate(
+                    [
+                        map_id.detach().numpy(),
+                        self.clean_agent_ssp.detach().numpy(),
+                        goal_ssp.detach().numpy()
+                    ],
+                    axis=1
+                )
+                vel_action = self.policy_network.predict(inputs)[0, :]
+            else:
+                vel_action = self.policy_network(
+                    # torch.cat([map_id, self.agent_ssp, goal_ssp], dim=1)
+                    torch.cat([map_id, self.clean_agent_ssp, goal_ssp], dim=1)
+                ).squeeze(0).detach().numpy()
 
             # TODO: possibly do a transform on the action output if the environment needs it
 
