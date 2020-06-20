@@ -3,6 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import json
 import numpy as np
+import nengo
+import tensorflow as tf
+
+import nengo_dl
+
+
 
 
 class FeedForward(nn.Module):
@@ -380,3 +386,129 @@ def load_model(model_path, params_path, n_mazes):
     model.load_state_dict(torch.load(model_path), strict=False)
 
     return model, params['maze_id_type']
+
+
+class SpikingPolicy(object):
+
+    def __init__(self, param_file, dim=256, maze_id_dim=256, hidden_size=1024, net_seed=13, n_steps=30):
+        self.param_file = param_file
+        self.net = nengo.Network(seed=net_seed)
+        with self.net:
+            # set some default parameters for the neurons that will make
+            # the training progress more smoothly
+            # net.config[nengo.Ensemble].max_rates = nengo.dists.Choice([100])
+            # net.config[nengo.Ensemble].intercepts = nengo.dists.Choice([0])
+            self.net.config[nengo.Connection].synapse = None
+            neuron_type = nengo.LIF(amplitude=0.01)
+
+            # this is an optimization to improve the training speed,
+            # since we won't require stateful behaviour in this example
+            nengo_dl.configure_settings(stateful=False)
+
+            # the input node that will be used to feed in (context, location, goal)
+            inp = nengo.Node(np.zeros((dim * 2 + maze_id_dim,)))
+
+            x = nengo_dl.Layer(tf.keras.layers.Dense(units=hidden_size))(inp)
+            x = nengo_dl.Layer(neuron_type)(x)
+
+            out = nengo_dl.Layer(tf.keras.layers.Dense(units=2))(x)
+
+            self.out_p = nengo.Probe(out, label="out_p")
+            self.out_p_filt = nengo.Probe(out, synapse=0.1, label="out_p_filt")
+
+        # self.sim = nengo_dl.Simulator(self.net, minibatch_size=1)
+        # self.sim.load_params(param_file)
+        # self.sim.compile(loss={self.out_p_filt: mse_loss})
+        self.n_steps = n_steps
+
+    def predict(self, inputs):
+
+
+        # param_file = 'networks/policy_params_1000000samples_250epochs'
+        # dim = 256
+        # maze_id_dim = 256
+        # hidden_size = 1024
+        # net_seed = 13
+        # n_steps = 30
+        # self.net = nengo.Network(seed=net_seed)
+        # with self.net:
+        #     # set some default parameters for the neurons that will make
+        #     # the training progress more smoothly
+        #     # net.config[nengo.Ensemble].max_rates = nengo.dists.Choice([100])
+        #     # net.config[nengo.Ensemble].intercepts = nengo.dists.Choice([0])
+        #     self.net.config[nengo.Connection].synapse = None
+        #     neuron_type = nengo.LIF(amplitude=0.01)
+        #
+        #     # this is an optimization to improve the training speed,
+        #     # since we won't require stateful behaviour in this example
+        #     nengo_dl.configure_settings(stateful=False)
+        #
+        #     # the input node that will be used to feed in (context, location, goal)
+        #     inp = nengo.Node(np.zeros((dim * 2 + maze_id_dim,)))
+        #
+        #     x = nengo_dl.Layer(tf.keras.layers.Dense(units=hidden_size))(inp)
+        #     x = nengo_dl.Layer(neuron_type)(x)
+        #
+        #     out = nengo_dl.Layer(tf.keras.layers.Dense(units=2))(x)
+        #
+        #     self.out_p = nengo.Probe(out, label="out_p")
+        #     self.out_p_filt = nengo.Probe(out, synapse=0.1, label="out_p_filt")
+        #
+        self.sim = nengo_dl.Simulator(self.net, minibatch_size=1)
+        self.sim.load_params(self.param_file)
+        self.sim.compile(loss={self.out_p_filt: mse_loss})
+        # self.n_steps = n_steps
+
+
+
+
+
+        tiled_input = np.tile(inputs[:, None, :], (1, self.n_steps, 1))
+
+        pred_eval = self.sim.predict(tiled_input)
+        return pred_eval[self.out_p_filt][:, 10:, :].mean(axis=1)
+
+
+class SpikingLocalization(object):
+
+    def __init__(self, param_file, dim=256, maze_id_dim=256, n_sensors=36, hidden_size=1024, net_seed=13, n_steps=30):
+        self.net = nengo.Network(seed=net_seed)
+        with self.net:
+            # set some default parameters for the neurons that will make
+            # the training progress more smoothly
+            # net.config[nengo.Ensemble].max_rates = nengo.dists.Choice([100])
+            # net.config[nengo.Ensemble].intercepts = nengo.dists.Choice([0])
+            self.net.config[nengo.Connection].synapse = None
+            neuron_type = nengo.LIF(amplitude=0.01)
+
+            # this is an optimization to improve the training speed,
+            # since we won't require stateful behaviour in this example
+            nengo_dl.configure_settings(stateful=False)
+
+            # the input node that will be used to feed in (context, location, goal)
+            inp = nengo.Node(np.zeros((n_sensors * 4 + maze_id_dim,)))
+
+            x = nengo_dl.Layer(tf.keras.layers.Dense(units=hidden_size))(inp)
+            x = nengo_dl.Layer(neuron_type)(x)
+
+            out = nengo_dl.Layer(tf.keras.layers.Dense(units=dim))(x)
+
+            self.out_p = nengo.Probe(out, label="out_p")
+            self.out_p_filt = nengo.Probe(out, synapse=0.1, label="out_p_filt")
+
+        self.sim = nengo_dl.Simulator(self.net, minibatch_size=1)
+        self.sim.load_params(param_file)
+        self.sim.compile(loss={self.out_p_filt: mse_loss})
+        self.n_steps = n_steps
+
+    def predict(self, inputs):
+        tiled_input = np.tile(inputs[:, None, :], (1, self.n_steps, 1))
+
+        pred_eval = self.sim.predict(tiled_input)
+        return pred_eval[self.out_p_filt][:, 10:, :].mean(axis=1)
+
+
+def mse_loss(y_true, y_pred):
+    return tf.metrics.MSE(
+        y_true[:, -1], y_pred[:, -1]
+    )
