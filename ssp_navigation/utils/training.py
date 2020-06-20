@@ -841,7 +841,7 @@ class PolicyEvaluation(object):
 
                 outputs = model(maze_loc_goal_ssps.to(self.device))
 
-                mse_loss = mse_criterion(outputs, directions)
+                mse_loss = mse_criterion(outputs, directions.to(self.device))
 
                 directions_pred[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = outputs.detach().cpu().numpy()
                 directions_true[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = directions.detach().cpu().numpy()
@@ -876,7 +876,7 @@ class PolicyEvaluation(object):
 
                 outputs = model(maze_loc_goal_ssps.to(self.device))
 
-                mse_loss = mse_criterion(outputs, directions)
+                mse_loss = mse_criterion(outputs, directions.to(self.device))
 
                 directions_pred[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = outputs.detach().cpu().numpy()
                 directions_true[n_batches * self.batch_size:n_batches * self.batch_size + len(directions), :] = directions.detach().cpu().numpy()
