@@ -6,9 +6,10 @@ import numpy as np
 import nengo
 import tensorflow as tf
 
-import nengo_dl
-
-
+try:
+    import nengo_dl
+except:
+    print("not importing nengo-dl")
 
 
 class FeedForward(nn.Module):
