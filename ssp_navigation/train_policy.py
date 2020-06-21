@@ -453,7 +453,7 @@ else:
         n_train_samples=args.n_train_samples,
         n_test_samples=args.n_test_samples,
         spatial_encoding=args.spatial_encoding,
-        n_mazes=n_mazes,
+        n_mazes=args.n_mazes,
         tile_mazes=args.tile_mazes,
         connected_tiles=args.connected_tiles,
     )
