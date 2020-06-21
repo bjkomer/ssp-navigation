@@ -465,6 +465,7 @@ else:
     # avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test = validation_set.get_rmse(model)
     # train_r2, test_r2 = validation_set.get_r2_score(model)
 
+    model.eval()
     avg_rmse_train, avg_angle_rmse_train, avg_rmse_test, avg_angle_rmse_test, train_r2, test_r2, avg_mse_loss_train, avg_mse_loss_test = validation_set.get_r2_and_rmse(model)
 
     # Keep track of global and local RMSE separately for connected tiles

@@ -340,6 +340,7 @@ for epoch in range(n_epochs):
 
 
 print("Testing")
+model.eval()
 coord_rmse, avg_mse_loss, avg_cosine_loss = validation_set.run_eval(
     model=model,
     writer=writer,
