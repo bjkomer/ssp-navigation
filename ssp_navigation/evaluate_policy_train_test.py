@@ -81,6 +81,7 @@ parser.add_argument('--n-mazes', type=int, default=10, help='Number of mazes fro
 parser.add_argument('--loss-function', type=str, default='mse', choices=['mse', 'cosine'])
 parser.add_argument('--lr', type=float, default=0.001)
 parser.add_argument('--momentum', type=float, default=0.9)
+parser.add_argument('--weight-decay', type=float, default=0, help='strength of L2 weight normalization')
 parser.add_argument('--optimizer', type=str, default='rmsprop', choices=['rmsprop', 'adam'])
 
 parser.add_argument('--use-cache', type=int, default=1, help='if 1, use cache, if 0, do not')
@@ -317,6 +318,7 @@ df['Number of Mazes'] = args.n_mazes
 df['Loss Function'] = args.loss_function
 df['Learning Rate'] = args.lr
 df['Momentum'] = args.momentum
+df['Weight Decay'] = args.weight_decay
 df['Optimizer'] = args.optimizer
 
 df.to_csv(args.out_file)
