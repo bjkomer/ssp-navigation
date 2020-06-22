@@ -544,8 +544,8 @@ else:
             obs = env.reset(goal_distance=params['goal_distance'])
 
             # record starting position and goal for this episode
-            start_locs[maze_index, e, :] = env.state[[0, 1]]
-            goal_locs[maze_index, e, :] = env.goal_state[[0, 1]]
+            start_locs[total_maze_index, e, :] = env.state[[0, 1]]
+            goal_locs[total_maze_index, e, :] = env.goal_state[[0, 1]]
 
             # env.goal_object is the string name for the goal
             # env.goal_state[[0, 1]] is the 2D location for that goal
@@ -589,15 +589,15 @@ else:
                 action += np.random.normal(size=2) * args.noise
 
                 obs, reward, done, info = env.step(action)
-                returns[maze_index, e] += reward
+                returns[total_maze_index, e] += reward
 
                 if args.record_trajectories:
-                    trajectories[maze_index, e, s, :] = env.state[[0, 1]]
+                    trajectories[total_maze_index, e, s, :] = env.state[[0, 1]]
 
                 if done:
                     break
 
-            print("Maze {}, EP {}, Ret: {}".format(maze_index + 1, e + 1, returns[maze_index, e]))
+            print("Maze {}, EP {}, Ret: {}".format(total_maze_index + 1, e + 1, returns[maze_index, e]))
 
     if args.record_trajectories:
         np.savez(
