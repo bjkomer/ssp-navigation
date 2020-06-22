@@ -9,7 +9,7 @@ import tensorflow as tf
 try:
     import nengo_dl
 except:
-    print("not importing nengo-dl")
+    pass
 
 
 class FeedForward(nn.Module):
