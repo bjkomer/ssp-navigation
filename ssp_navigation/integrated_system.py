@@ -11,7 +11,7 @@ import nengo_spa as nengo_spa
 from collections import OrderedDict
 from spatial_semantic_pointers.utils import encode_point, ssp_to_loc, get_heatmap_vectors
 
-from ssp_navigation.utils.models import FeedForward, MLP
+from ssp_navigation.utils.models import FeedForward, MLP, SpikingPolicy, SpikingLocalization
 from ssp_navigation.utils.training import LocalizationModel
 from ssp_navigation.utils.path import solve_maze
 from ssp_navigation.utils.encodings import get_encoding_function, add_encoding_params
@@ -23,6 +23,8 @@ from ssp_navigation.utils.encodings import get_encoding_function, add_encoding_p
 """
 
 parser = argparse.ArgumentParser('Run a full system on a maze task')
+
+parser.add_argument('--spiking', action='store_true', help='Use spiking components')
 
 parser.add_argument('--cleanup-network', type=str,
                     default='networks/cleanup_network.pt',
@@ -59,7 +61,7 @@ parser.add_argument('--n-hidden-layers-localization', type=int, default=1, help=
 parser.add_argument('--localization-dropout-fraction', type=float, default=0.1)
 parser.add_argument('--policy-hs', type=int, default=2048, help='hidden size for policy')
 parser.add_argument('--n-hidden-layers-policy', type=int, default=1, help='number of hidden layers in the policy network')
-parser.add_argument('--policy-dropout-fraction', type=float, default=0.1)
+parser.add_argument('--policy-dropout-fraction', type=float, default=0.15)
 
 parser.add_argument('--evaluate', action='store_true', help='if set, evaluate system on a variety of mazes')
 parser.add_argument('--record-trajectories', action='store_true', help='if set, record agent position at every step')
@@ -119,7 +121,7 @@ fine_mazes = data['fine_mazes']
 # n_mazes by n_goals by 2
 goals = data['goals']
 
-n_goals = goals.shape[1]
+# n_goals = goals.shape[1]
 n_mazes = fine_mazes.shape[0]
 
 id_size = args.maze_id_dim
@@ -290,38 +292,59 @@ if not args.use_cleanup_gt:
     )
     cleanup_network.eval()
 
-policy_network = MLP(
-    input_size=id_size + repr_dim * 2,
-    hidden_size=args.policy_hs,
-    output_size=2,
-    n_layers=args.n_hidden_layers_policy,
-    dropout_fraction=args.policy_dropout_fraction,
-)
+if args.spiking:
+    policy_network = SpikingPolicy(
+        param_file='networks/policy_params_1000000samples_250epochs',
+        dim=256,
+        maze_id_dim=256,
+        hidden_size=1024,
+        net_seed=13,
+        n_steps=30,
+    )
+else:
+    policy_network = MLP(
+        input_size=id_size + repr_dim * 2,
+        hidden_size=args.policy_hs,
+        output_size=2,
+        n_layers=args.n_hidden_layers_policy,
+        dropout_fraction=args.policy_dropout_fraction,
+    )
 
-policy_network.load_state_dict(
-    torch.load(args.policy_network, map_location=lambda storage, loc: storage),
-    strict=True
-)
-policy_network.eval()
-
-# localization_network = FeedForward(
-#     input_size=n_sensors + args.maze_id_dim,
-#     hidden_size=args.localization_hs,
-#     output_size=args.dim,
-# )
-localization_network = MLP(
-    input_size=n_sensors * 4 + args.maze_id_dim,
-    hidden_size=args.localization_hs,
-    output_size=args.dim,
-    n_layers=args.n_hidden_layers_localization,
-    dropout_fraction=args.localization_dropout_fraction,
-)
-if not args.use_localization_gt:
-    localization_network.load_state_dict(
-        torch.load(args.localization_network, map_location=lambda storage, loc: storage),
+    policy_network.load_state_dict(
+        torch.load(args.policy_network, map_location=lambda storage, loc: storage),
         strict=True
     )
-    localization_network.eval()
+    policy_network.eval()
+
+if args.spiking:
+    localization_network = SpikingLocalization(
+        param_file='networks/localization_params_mse_hs1024_100000samples_25epochs',
+        dim=256,
+        maze_id_dim=256,
+        n_sensors=36,
+        hidden_size=1024,
+        net_seed=13,
+        n_steps=30,
+    )
+else:
+    # localization_network = FeedForward(
+    #     input_size=n_sensors + args.maze_id_dim,
+    #     hidden_size=args.localization_hs,
+    #     output_size=args.dim,
+    # )
+    localization_network = MLP(
+        input_size=n_sensors * 4 + args.maze_id_dim,
+        hidden_size=args.localization_hs,
+        output_size=args.dim,
+        n_layers=args.n_hidden_layers_localization,
+        dropout_fraction=args.localization_dropout_fraction,
+    )
+    if not args.use_localization_gt:
+        localization_network.load_state_dict(
+            torch.load(args.localization_network, map_location=lambda storage, loc: storage),
+            strict=True
+        )
+        localization_network.eval()
 
 
 # # Ground truth versions of the above functions
@@ -352,7 +375,9 @@ agent = IntegSystemAgent(
     x_axis_vec=x_axis_vec,
     y_axis_vec=y_axis_vec,
     dt=params['dt'],
+    spiking=args.spiking,
 )
+
 
 if not args.evaluate:
     # view the system in action
@@ -438,10 +463,11 @@ if not args.evaluate:
 
     print(returns)
 else:
+    n_mazes = 50  # number of maze/memory combos to evaluate on
     # evaluate system by recording performance.
     if not os.path.exists('output'):
         os.makedirs('output')
-    fname = 'output/results_integ_noise{}_s{}'.format(args.noise, args.env_seed)
+    fname = 'output/results_integ_noise{}_s{}_{}envs'.format(args.noise, args.env_seed, n_mazes)
     if args.normalize_action:
         fname += '_norm_action'
     if args.use_cleanup_gt:
@@ -449,16 +475,19 @@ else:
     if args.use_localization_gt:
         fname += '_loc_gt'
     fname += '.npz'
-    n_mazes = 10  # number of mazes to evaluate on
+
+    n_mazes_max = 10  # number of mazes to evaluate on
     num_episodes = 100  # number of episodes per maze
     returns = np.zeros((n_mazes, num_episodes,))
     start_locs = np.zeros((n_mazes, num_episodes, 2))
     goal_locs = np.zeros((n_mazes, num_episodes, 2))
+    vocab_rng = np.random.RandomState(seed=args.env_seed)
     if args.record_trajectories:
         # initialize to -1, so negative entries mean the goal has already been reached
         trajectories = np.ones((n_mazes, num_episodes, params['episode_length'], 2))*-1
-    for maze_index in range(n_mazes):
-        print("Maze {} of {}".format(maze_index + 1, n_mazes))
+    for total_maze_index in range(n_mazes):
+        maze_index = total_maze_index % n_mazes_max
+        print("Maze {} of {}".format(total_maze_index + 1, n_mazes))
         # Generate a new environment object for each maze
         map_array = coarse_mazes[maze_index, :, :]
         object_locations = OrderedDict()
@@ -471,7 +500,7 @@ else:
                 # If set to None, the environment will choose a random free space on init
                 object_locations[sp_name] = None
             # vocab[sp_name] = spa.SemanticPointer(ssp_dim)
-            vocab[sp_name] = nengo_spa.SemanticPointer(data=np.random.uniform(-1, 1, size=args.dim)).normalized()
+            vocab[sp_name] = nengo_spa.SemanticPointer(data=vocab_rng.uniform(-1, 1, size=args.dim)).normalized()
         env = GridWorldEnv(
             map_array=map_array,
             object_locations=object_locations,  # object locations explicitly chosen so a fixed SSP memory can be given
@@ -489,7 +518,7 @@ else:
             screen_width=300,
             screen_height=300,
             debug_ghost=True,
-            seed=args.env_seed + maze_index,
+            seed=args.env_seed + total_maze_index,
         )
 
         # Fill the item memory with the correct SSP for remembering the goal locations
