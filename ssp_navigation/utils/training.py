@@ -1640,7 +1640,10 @@ class SnapshotValidationSet(object):
     def run_eval(self, model, writer, epoch, ret_loss=False):
 
         with torch.no_grad():
-            # Everything is in one batch, so this loop will only happen once
+            # Split into multiple batches, need to average across each one
+            n_batches = 0
+            avg_cosine_loss = 0
+            avg_mse_loss = 0
             for i, data in enumerate(self.dataloader):
                 # sensor_inputs, map_ids, ssp_outputs = data
                 # sensors and map ID combined
@@ -1659,11 +1662,18 @@ class SnapshotValidationSet(object):
                     ssp_outputs.to(self.device)
                 )
 
-                print("test mse loss", mse_loss.data.item())
-                print("test cosine loss", mse_loss.data.item())
+                n_batches += 1
+                avg_cosine_loss += cosine_loss.data.item()
+                avg_mse_loss += mse_loss.data.item()
 
-            writer.add_scalar('test_mse_loss', mse_loss.data.item(), epoch)
-            writer.add_scalar('test_cosine_loss', cosine_loss.data.item(), epoch)
+            avg_cosine_loss /= n_batches
+            avg_mse_loss /= n_batches
+
+            print("test mse loss", avg_mse_loss)
+            print("test cosine loss", avg_cosine_loss)
+
+            writer.add_scalar('test_mse_loss', avg_mse_loss, epoch)
+            writer.add_scalar('test_cosine_loss', avg_cosine_loss, epoch)
 
             # One prediction and ground truth coord for every element in the batch
             # NOTE: this is assuming the eval set only has one giant batch
@@ -2181,7 +2191,7 @@ def coloured_localization_encoding_train_test_loaders(
             )
         elif test_set == 1:
             testloader = torch.utils.data.DataLoader(
-                dataset, batch_size=n_samples, shuffle=True, num_workers=0,
+                dataset, batch_size=batch_size, shuffle=True, num_workers=0,
             )
 
     return trainloader, testloader
