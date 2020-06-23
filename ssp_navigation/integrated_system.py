@@ -52,7 +52,8 @@ parser.add_argument('--use-localization-gt', action='store_true')
 parser.add_argument('--maze-id-dim', default=256, help='dimensionality of the maze ID')
 parser.add_argument('--n-goals', default=10)
 parser.add_argument('--normalize-action', action='store_true', help='normalize action to be on the unit circle')
-parser.add_argument('--new-sensor-ratio', default=0.1, help='weighting on new sensor information')
+# parser.add_argument('--new-sensor-ratio', default=0.1, help='weighting on new sensor information')
+parser.add_argument('--new-sensor-ratio', default=0.5, help='weighting on new sensor information')
 
 # network parameters
 parser.add_argument('--cleanup-hs', type=int, default=512, help='hidden size for cleanup')

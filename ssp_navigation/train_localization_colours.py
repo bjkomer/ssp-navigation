@@ -254,11 +254,13 @@ for epoch in range(n_epochs):
     if epoch % args.eval_period == 0:
 
         print("Evaluating")
+        model.eval()
         validation_set.run_eval(
             model=model,
             writer=writer,
             epoch=epoch,
         )
+        model.train()
 
         torch.save(
             model.state_dict(),
@@ -312,7 +314,7 @@ for epoch in range(n_epochs):
             scaled_loss.backward()
 
         # Gradient Clipping
-        torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip_thresh)
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip_thresh)
 
         optimizer.step()
 

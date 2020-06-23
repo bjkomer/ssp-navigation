@@ -210,7 +210,7 @@ class IntegSystemAgent(object):
 
     def apply_velocity(self, ssp, vel):
         # extra zero index is because of the batch dimension
-        vel_ssp = (self.xf**vel[0, 0])*(self.yf**vel[0, 1])
+        vel_ssp = (self.xf**vel[0, 0]*self.dt)*(self.yf**vel[0, 1]*self.dt)
         return np.fft.ifft(np.fft.fft(ssp)*vel_ssp).real
 
     def act(self, distances, velocity, semantic_goal, map_id, item_memory, env,
@@ -248,7 +248,8 @@ class IntegSystemAgent(object):
                         self.agent_ssp.detach().numpy(),
                         velocity.detach().numpy()
                     )
-                ).squeeze(0) * self.new_sensor_ratio + agent_ssp_estimate * (1 - self.new_sensor_ratio)
+                ).squeeze(0) * (1 - self.new_sensor_ratio) + agent_ssp_estimate * self.new_sensor_ratio
+                # ).squeeze(0) * self.new_sensor_ratio + agent_ssp_estimate * (1 - self.new_sensor_ratio)
 
             if use_cleanup_gt:
                 goal_ssp = self.cleanup_gt(env)
