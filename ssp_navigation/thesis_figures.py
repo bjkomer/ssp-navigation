@@ -28,7 +28,7 @@ old_names = [
     'hex-ssp', 'ssp', 'pc-gauss', 'tile-coding', 'one-hot',
     'learned', 'learned-normalized', '2d', 'random',
     'frozen-learned', 'frozen-learned-normalized',
-    'random-proj', 'ind-ssp', '2d-normalized', 'legendre'
+    'random-proj', 'ind-ssp', '2d-normalized', 'legendre',
 ]
 if args.figure == 'all-enc-256' or args.figure == 'all-enc-256-large-hs':
     # shortened names
@@ -36,7 +36,7 @@ if args.figure == 'all-enc-256' or args.figure == 'all-enc-256-large-hs':
         'Hex SSP', 'SSP', 'RBF', 'TC', 'OH',
         'Learn', 'Learn-N', '2D', 'Rand',
         'Learn-F', 'Learn-F-N',
-        'Rand-P', 'Ind SSP', '2D-N', 'LG'
+        'Rand-P', 'Ind SSP', '2D-N', 'LG',
     ]
 else:
     order = [
