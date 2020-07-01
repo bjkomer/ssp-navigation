@@ -15,7 +15,7 @@ from ssp_navigation.utils.models import FeedForward, MLP, LearnedEncoding, Learn
 from ssp_navigation.utils.encodings import get_encoding_function
 # from functools import partial
 import nengo.spa as spa
-from ssp_navigation.utils.training import PolicyEvaluation
+from ssp_navigation.utils.training import PolicyEvaluation, add_weight_decay
 import pandas as pd
 
 parser = argparse.ArgumentParser(
@@ -292,12 +292,26 @@ validation_set.run_ground_truth(writer=writer)
 cosine_criterion = nn.CosineEmbeddingLoss()
 mse_criterion = nn.MSELoss()
 
+optim_params = add_weight_decay(model, args.weight_decay)
+
 if args.optimizer == 'sgd':
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    optimizer = torch.optim.SGD(
+        # model.parameters(),
+        optim_params,
+        lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
+    )
 elif args.optimizer == 'rmsprop':
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    optimizer = torch.optim.RMSprop(
+        # model.parameters(),
+        optim_params,
+        lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
+    )
 elif args.optimizer == 'adam':
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(
+        # model.parameters(),
+        optim_params,
+        lr=args.lr, weight_decay=args.weight_decay
+    )
 else:
     raise NotImplementedError
 
