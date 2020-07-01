@@ -244,14 +244,20 @@ class SSPTransform(nn.Module):
         self.tau_len = (self.ssp_dim // 2) + 1
         # constants used in the transformation
         # first dimension is batch dimension, set to 1 to be broadcastable
-        self.const_phase = torch.zeros(1, self.ssp_dim, self.tau_len)
+        self.const_phase = nn.Parameter(
+            torch.zeros(1, self.ssp_dim, self.tau_len),
+            requires_grad=False
+        )
         for a in range(self.ssp_dim):
             for k in range(self.tau_len):
                 self.const_phase[:, a, k] = 2*np.pi*k*a/self.ssp_dim
 
         # The 2/N or 1/N scaling applied outside of the cos
         # 2/N on all terms with phi, 1/N on constant and nyquist if it exists
-        self.const_scaling = torch.ones(1, 1, self.tau_len)*2./self.ssp_dim
+        self.const_scaling = nn.Parameter(
+            torch.ones(1, 1, self.tau_len)*2./self.ssp_dim,
+            requires_grad=False
+        )
         self.const_scaling[:, :, 0] = 1./self.ssp_dim
         if self.ssp_dim % 2 == 0:
             self.const_scaling[:, :, -1] = 1. / self.ssp_dim
