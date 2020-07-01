@@ -266,12 +266,13 @@ class SSPTransform(nn.Module):
 
         batch_size = inputs.shape[0]
 
-        full_phis = torch.zeros(self.coord_dim, self.tau_len, dtype=inputs.dtype).to(inputs.device)
+        full_phis = torch.zeros(self.coord_dim, self.tau_len, dtype=inputs.dtype)
         full_phis[:, 1:self.n_param + 1] = self.phis
+        full_phis = full_phis.to(inputs.device)
         shift = torch.zeros(batch_size, 1, self.tau_len, dtype=inputs.dtype).to(inputs.device)
         shift[:, 0, :] = torch.mm(inputs, full_phis)
 
-        return (torch.cos(shift + self.const_phase) * self.const_scaling).sum(axis=2)
+        return (torch.cos(shift.to(inputs.device) + self.const_phase) * self.const_scaling).sum(axis=2)
 
 
 # class LearnedEncoding(nn.Module):
