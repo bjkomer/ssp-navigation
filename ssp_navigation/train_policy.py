@@ -96,6 +96,8 @@ parser.add_argument('--input-noise', type=float, default=0.0,
 parser.add_argument('--shift-noise', type=float, default=0.0,
                     help='Shifting coordinates before encoding by up to this amount as a form of noise')  # 0.2
 
+parser.add_argument('--decay-phis', action='store_true', help='apply weight decay to phis for learned-ssp')
+
 parser.add_argument('--gpu', type=int, default=-1,
                     help="set to an integer corresponding to the gpu to use. Set to -1 to use the CPU")
 
@@ -292,7 +294,7 @@ validation_set.run_ground_truth(writer=writer)
 cosine_criterion = nn.CosineEmbeddingLoss()
 mse_criterion = nn.MSELoss()
 
-optim_params = add_weight_decay(model, args.weight_decay)
+optim_params = add_weight_decay(model, args.weight_decay, decay_phis=args.decay_phis)
 
 if args.optimizer == 'sgd':
     optimizer = torch.optim.SGD(

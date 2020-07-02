@@ -2297,14 +2297,17 @@ def pc_to_loc_v(pc_activations, centers, jitter=0.01):
     return centers[indices] + np.random.normal(loc=0, scale=jitter, size=(n_samples, 2))
 
 
-def add_weight_decay(net, weight_decay, skip_list=()):
+def add_weight_decay(net, weight_decay, skip_list=(), decay_phis=False):
     decay = []
     no_decay = []
     for name, param in net.named_parameters():
         if not param.requires_grad:
             continue  # frozen weights
         if len(param.shape) == 1 or name.endswith(".bias") or name.endswith(".phis") or name in skip_list:
-            no_decay.append(param)
+            if decay_phis and name.endswith(".phis"):
+                decay.append(param)
+            else:
+                no_decay.append(param)
         else:
             decay.append(param)
     return [{'params': no_decay, 'weight_decay': 0.}, {'params': decay, 'weight_decay': weight_decay}]
