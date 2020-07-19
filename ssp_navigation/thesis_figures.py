@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import ttest_ind
 import matplotlib.patches as mpatches
+import matplotlib.ticker
 
 parser = argparse.ArgumentParser('Generate final version of figures for thesis')
 
@@ -19,6 +20,7 @@ parser.add_argument('--figure', type=str, default='capacity',
         'hs-enc', 'lr-enc', 'bs-enc', 'nl-enc',
         'learned-phi-reg', 'learned-phi-no-reg',
         'large-dim-adam',
+        'learned-phi-reg-v2',
     ]
 )
 
@@ -128,6 +130,19 @@ elif args.figure == 'nl-enc':
 elif args.figure == 'learned-phi-reg':
     # folders = ['eval_data_tt/learned_phi_regularized']
     folders = ['eval_data_tt/learned_phi_regularized_longer']
+    folders = ['eval_data_tt/learned_phi_proper_reg']
+    # folders = ['eval_data_tt/learned_phi_large_dim_proper_reg']
+    # folders = ['eval_data_tt/learned_phi_proper_reg_phi_decay']
+    # folders = ['eval_data_tt/learned_phi_proper_reg_noise']
+elif args.figure == 'learned-phi-reg-v2':
+    folders = ['eval_data_tt/learned_phi_regularized_longer',
+               'eval_data_tt/learned_phi_proper_reg',
+               'eval_data_tt/learned_phi_proper_reg_noise'
+               ]
+    # folders = ['eval_data_tt/learned_phi_regularized_longer',
+    #            'eval_data_tt/learned_phi_proper_reg_phi_decay',
+    #            'eval_data_tt/learned_phi_proper_reg_noise'
+    #            ]
 elif args.figure == 'learned-phi-no-reg':
     folders = ['eval_data_tt/learned_phi_no_reg_longer']
 elif args.figure == 'large-dim-adam':
@@ -327,6 +342,10 @@ elif args.figure == 'dim':
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Dimensionality')
 elif args.figure == 'all-enc-256':
     df = df[df['Number of Mazes'] == 25]
+    # df = df[df['Seed'] >= 8]
+    # df = df[df['Hidden Layer Size'] == 256]
+    # df = df[df['Hidden Layer Size'] == 1024]
+    # df = df[df['Hidden Layer Size'] == 2048]
     # order = [
     #     'Hex SSP', 'SSP', 'Ind SSP',
     #     'RBF', 'Legendre', 'Tile-Code', 'One-Hot',
@@ -594,9 +613,26 @@ elif args.figure == 'hs-enc':
     sns.lineplot(data=df, x='Hidden Layer Size', y='Angular RMSE', hue='Encoding', ax=ax)
     ax.set(xscale='log')
 
+    matplotlib.rcParams['xtick.minor.size'] = 0
+    matplotlib.rcParams['xtick.minor.width'] = 0
+
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     sns.lineplot(data=df, x='Hidden Layer Size', y='Angular RMSE', ax=ax)
-    ax.set(xscale='log')
+
+    # ax.set(xscale='log')
+    ax.set_xscale('log')
+
+    # ax.set_xticks([])
+
+    from matplotlib.ticker import NullFormatter
+    ax.xaxis.set_major_formatter(NullFormatter())
+    ax.xaxis.set_minor_formatter(NullFormatter())
+    ax.set_xticks([256, 512, 1024, 2048])
+    ax.set_xticklabels([256, 512, 1024, 2048])
+    # ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    # ax.get_xaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
+    # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
+
 elif args.figure == 'lr-enc':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     # sns.barplot(data=df, x='Learning Rate', y='Angular RMSE', hue='Encoding', ax=ax)
@@ -622,8 +658,10 @@ elif args.figure == 'nl-enc':
 
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     sns.lineplot(data=df, x='Hidden Layers', y='Angular RMSE', ax=ax)
+    ax.set_xticks([1, 2, 3, 4])
 elif args.figure == 'learned-phi-reg' or args.figure == 'learned-phi-no-reg':
-    df_256 = df[df['Hidden Layer Size'] == 256]
+    # df_256 = df[df['Hidden Layer Size'] == 256]
+    df_256 = df
     # df_1024 = df[df['Hidden Layer Size'] == 1024]
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     sns.barplot(data=df_256, x='Encoding', y='Angular RMSE', ax=ax)
@@ -660,6 +698,7 @@ elif args.figure == 'learned-phi-reg' or args.figure == 'learned-phi-no-reg':
         loc='inside',
         verbose=2
     )
+    sns.despine()
 
     df_256_train = df_256.copy()
     df_256_train = df_256_train.drop(columns=['Angular RMSE'])
@@ -713,6 +752,23 @@ elif args.figure == 'learned-phi-reg' or args.figure == 'learned-phi-no-reg':
     #     loc='inside',
     #     verbose=2
     # )
+elif args.figure == 'learned-phi-reg-v2':
+    df_original = df[df['Batch Size'] == 64]
+    df_original = df_original[df_original['Hidden Layer Size'] == 1024]
+    df_new = df[df['Batch Size'] == 512]
+    df_new_noise = df_new[df_new['Input Noise'] > 0]
+    df_new_no_noise = df_new[df_new['Input Noise'] == 0]
+
+    df_original['Version'] = 'Old'
+    df_new_no_noise['Version'] = 'No Noise'
+    df_new_noise['Version'] = 'Noise'
+
+    df_combined = pd.concat([df_original, df_new_no_noise, df_new_noise])
+    fix, ax = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
+    bar = sns.barplot(
+        data=df_combined, x='Version', y='Angular RMSE',
+    )
+
 elif args.figure == 'large-dim-adam':
     fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
