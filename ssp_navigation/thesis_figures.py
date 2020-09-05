@@ -21,6 +21,8 @@ parser.add_argument('--figure', type=str, default='capacity',
         'learned-phi-reg', 'learned-phi-no-reg',
         'large-dim-adam',
         'learned-phi-reg-v2',
+        'connected-tiled-maze-512',
+        'connected-tiled-maze-1024',
     ]
 )
 
@@ -115,18 +117,22 @@ elif args.figure == 'hs-enc':
     # folders = ['eval_data_tt/hp_exps/hidden_size']
     folders = ['eval_data_tt/hp_exps_longer/hs']
     folders = ['eval_data_tt/hp_exps_two_layer/hs']
+    # folders = ['eval_data_tt/hp_exps_reg/hs']
 elif args.figure == 'lr-enc':
     # folders = ['eval_data_tt/hp_exps/lr']
     folders = ['eval_data_tt/hp_exps_longer/lr']
     folders = ['eval_data_tt/hp_exps_two_layer/lr']
+    # folders = ['eval_data_tt/hp_exps_reg/lr']
 elif args.figure == 'bs-enc':
     # folders = ['eval_data_tt/hp_exps/batch_size']
     folders = ['eval_data_tt/hp_exps_longer/bs']
     folders = ['eval_data_tt/hp_exps_two_layer/bs']
+    # folders = ['eval_data_tt/hp_exps_reg/bs']
 elif args.figure == 'nl-enc':
     # folders = ['eval_data_tt/hp_exps/nlayers']
     folders = ['eval_data_tt/hp_exps_longer/nl']
     folders = ['eval_data_tt/hp_exps_two_layer/nl']
+    # folders = ['eval_data_tt/hp_exps_reg/nl']
 elif args.figure == 'learned-phi-reg':
     # folders = ['eval_data_tt/learned_phi_regularized']
     folders = ['eval_data_tt/learned_phi_regularized_longer']
@@ -147,6 +153,10 @@ elif args.figure == 'learned-phi-no-reg':
     folders = ['eval_data_tt/learned_phi_no_reg_longer']
 elif args.figure == 'large-dim-adam':
     folders = ['eval_data_tt/large_dim_adam_exps']
+elif args.figure == 'connected-tiled-maze-512':
+    folders = ['eval_data_tt/large_dim_connected_reg_v2']
+elif args.figure == 'connected-tiled-maze-1024':
+    folders = ['eval_data_tt/large_dim_connected_reg']
 else:
     raise NotImplementedError
 
@@ -633,6 +643,8 @@ elif args.figure == 'hs-enc':
     # ax.get_xaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
     # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
 
+    # consistent y-limit across plots
+    ax.set_ylim([.35, .6])
 elif args.figure == 'lr-enc':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     # sns.barplot(data=df, x='Learning Rate', y='Angular RMSE', hue='Encoding', ax=ax)
@@ -642,6 +654,8 @@ elif args.figure == 'lr-enc':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     sns.lineplot(data=df, x='Learning Rate', y='Angular RMSE', ax=ax)
     ax.set(xscale='log')
+    # consistent y-limit across plots
+    ax.set_ylim([.35, .6])
 elif args.figure == 'bs-enc':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     # sns.barplot(data=df, x='Batch Size', y='Angular RMSE', hue='Encoding', ax=ax)
@@ -651,6 +665,8 @@ elif args.figure == 'bs-enc':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     sns.lineplot(data=df, x='Batch Size', y='Angular RMSE', ax=ax)
     ax.set(xscale='log')
+    # consistent y-limit across plots
+    ax.set_ylim([.35, .6])
 elif args.figure == 'nl-enc':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     # sns.barplot(data=df, x='Hidden Layers', y='Angular RMSE', hue='Encoding', ax=ax)
@@ -659,6 +675,8 @@ elif args.figure == 'nl-enc':
     fix, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
     sns.lineplot(data=df, x='Hidden Layers', y='Angular RMSE', ax=ax)
     ax.set_xticks([1, 2, 3, 4])
+    # consistent y-limit across plots
+    ax.set_ylim([.35, .6])
 elif args.figure == 'learned-phi-reg' or args.figure == 'learned-phi-no-reg':
     # df_256 = df[df['Hidden Layer Size'] == 256]
     df_256 = df
@@ -772,6 +790,13 @@ elif args.figure == 'learned-phi-reg-v2':
 elif args.figure == 'large-dim-adam':
     fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
     sns.barplot(data=df, x='Encoding', y='Angular RMSE', hue='Number of Mazes')
+elif args.figure == 'connected-tiled-maze-512' or args.figure == 'connected-tiled-maze-1024':
+    df = df.replace('sub-toroid-ssp', 'Grid SSP')
+    order = ['Grid SSP', 'Hex SSP', 'SSP', 'RBF', 'Tile-Code', 'Learned Normalized', '2D Normalize']
+    df = df[df['Hidden Layer Size'] == 2048]
+    df = df[df['Maze ID Dim'] == 0]
+    fix, ax = plt.subplots(1, 1, figsize=(8.5, 6.5), tight_layout=True)
+    sns.barplot(data=df, x='Encoding', y='Angular RMSE', order=order)
 
 sns.despine()
 plt.show()
