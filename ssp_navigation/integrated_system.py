@@ -11,7 +11,8 @@ import nengo_spa as nengo_spa
 from collections import OrderedDict
 from spatial_semantic_pointers.utils import encode_point, ssp_to_loc, get_heatmap_vectors
 
-from ssp_navigation.utils.models import FeedForward, MLP, SpikingPolicy, SpikingLocalization
+from ssp_navigation.utils.models import FeedForward, MLP, SpikingPolicy, SpikingLocalization, \
+    SpikingPolicyNengo, SpikingLocalizationNengo
 from ssp_navigation.utils.training import LocalizationModel
 from ssp_navigation.utils.path import solve_maze
 from ssp_navigation.utils.encodings import get_encoding_function, add_encoding_params
@@ -294,11 +295,20 @@ if not args.use_cleanup_gt:
     cleanup_network.eval()
 
 if args.spiking:
-    policy_network = SpikingPolicy(
-        param_file='networks/policy_params_1000000samples_250epochs',
+    # policy_network = SpikingPolicy(
+    #     param_file='networks/policy_params_1000000samples_250epochs',
+    #     dim=256,
+    #     maze_id_dim=256,
+    #     hidden_size=1024,
+    #     net_seed=13,
+    #     n_steps=30,
+    # )
+    policy_network = SpikingPolicyNengo(
+        param_file='networks/nengo_policy_obj_2layer_mse_hs2048_5000000samples_100epochs_1e-05reg.pkl',
         dim=256,
         maze_id_dim=256,
-        hidden_size=1024,
+        hidden_size=2048,
+        n_layers=2,
         net_seed=13,
         n_steps=30,
     )
@@ -318,12 +328,22 @@ else:
     policy_network.eval()
 
 if args.spiking:
-    localization_network = SpikingLocalization(
-        param_file='networks/localization_params_mse_hs1024_100000samples_25epochs',
+    # localization_network = SpikingLocalization(
+    #     param_file='networks/localization_params_mse_hs1024_100000samples_25epochs',
+    #     dim=256,
+    #     maze_id_dim=256,
+    #     n_sensors=36,
+    #     hidden_size=1024,
+    #     net_seed=13,
+    #     n_steps=30,
+    # )
+    localization_network = SpikingLocalizationNengo(
+        param_file='networks/nengo_localization_obj_1layer_mse_hs4096_3000000samples_25epochs_1e-05reg.pkl',
         dim=256,
         maze_id_dim=256,
         n_sensors=36,
-        hidden_size=1024,
+        hidden_size=4096,
+        n_layers=1,
         net_seed=13,
         n_steps=30,
     )

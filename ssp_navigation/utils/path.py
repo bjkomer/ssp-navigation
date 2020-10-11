@@ -103,7 +103,7 @@ def plot_path_predictions(directions, coords, name='', min_val=-1, max_val=1,
     return fig
 
 
-def plot_path_predictions_image(directions_pred, directions_true, name='', ax=None, wall_overlay=None):
+def plot_path_predictions_image(directions_pred, directions_true, name='', ax=None, wall_overlay=None, trim=False):
 
     if ax is None:
         fig, ax = plt.subplots()
@@ -111,11 +111,31 @@ def plot_path_predictions_image(directions_pred, directions_true, name='', ax=No
         fig = None
 
     angles_flat_pred = np.arctan2(directions_pred[:, 1], directions_pred[:, 0])
+    angles_flat_true = np.arctan2(directions_true[:, 1], directions_true[:, 0])
+
+    # Create 3 possible offsets to cover all cases
+    angles_offset_true = np.zeros((len(angles_flat_true), 3))
+    angles_offset_true[:, 0] = angles_flat_true - 2 * np.pi
+    angles_offset_true[:, 1] = angles_flat_true
+    angles_offset_true[:, 2] = angles_flat_true + 2 * np.pi
+
+    angles_offset_true -= angles_flat_pred.reshape(len(angles_flat_pred), 1)
+    angles_offset_true = np.abs(angles_offset_true)
+
+    angle_error = np.min(angles_offset_true, axis=1)
+
+    angle_squared_error = angle_error**2
+    if wall_overlay is not None:
+        angle_rmse = np.sqrt(angle_squared_error[np.where(wall_overlay == 0)].mean())
+    else:
+        angle_rmse = np.sqrt(angle_squared_error.mean())
 
     # NOTE: this assumes the data can be reshaped into a perfect square
     size = int(np.sqrt(angles_flat_pred.shape[0]))
 
     angles_pred = angles_flat_pred.reshape((size, size))
+    if trim:
+        angles_pred = angles_pred[:-5, :-5]
 
     ax.imshow(angles_pred, cmap='hsv', interpolation=None)
 
@@ -130,6 +150,9 @@ def plot_path_predictions_image(directions_pred, directions_true, name='', ax=No
                     overlay[i, j, 3] = 255
                 else:
                     overlay[i, j, :] = 0
+
+        if trim:
+            overlay = overlay[:-5, :-5, :]
         ax.imshow(overlay, interpolation=None)
 
     sin = np.sin(angles_flat_pred)
@@ -146,16 +169,17 @@ def plot_path_predictions_image(directions_pred, directions_true, name='', ax=No
     rmse = np.sqrt(mse)
 
     print("rmse", rmse)
+    print("angle rmse", angle_rmse)
 
     if fig is not None:
-        fig.suptitle("RMSE: {}".format(rmse))
+        fig.suptitle("RMSE: {}".format(angle_rmse))
 
         if name:
             fig.suptitle(name)
     else:
-        ax.set_title("RMSE: {}".format(rmse))
+        ax.set_title("RMSE: {}".format(angle_rmse))
 
-    return fig, rmse
+    return fig, angle_rmse
 
 
 def get_path_predictions_image(directions_pred, directions_true, wall_overlay=None):

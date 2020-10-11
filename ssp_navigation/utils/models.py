@@ -5,6 +5,7 @@ import json
 import numpy as np
 import nengo
 import tensorflow as tf
+import pickle
 
 try:
     import nengo_dl
@@ -520,3 +521,255 @@ def mse_loss(y_true, y_pred):
     return tf.metrics.MSE(
         y_true[:, -1], y_pred[:, -1]
     )
+
+
+class SpikingPolicyNengo(object):
+
+    def __init__(self, param_file, dim=256, maze_id_dim=256, hidden_size=2048, n_layers=2, net_seed=13, n_steps=30):
+        self.param_file = param_file
+        self.net = nengo.Network(seed=net_seed)
+        with self.net:
+            # set some default parameters for the neurons that will make
+            # the training progress more smoothly
+            # net.config[nengo.Ensemble].max_rates = nengo.dists.Choice([100])
+            # net.config[nengo.Ensemble].intercepts = nengo.dists.Choice([0])
+            self.net.config[nengo.Connection].synapse = None
+            self.net.config[nengo.Connection].transform = nengo_dl.dists.Glorot()
+            neuron_type = nengo.LIF(amplitude=0.01)
+
+            # this is an optimization to improve the training speed,
+            # since we won't require stateful behaviour in this example
+            nengo_dl.configure_settings(stateful=False)
+
+            # the input node that will be used to feed in (context, location, goal)
+            inp = nengo.Node(np.zeros((dim * 2 + maze_id_dim,)))
+
+            if '.pkl' in param_file:
+                print("Loading values from pickle file")
+
+                policy_params = pickle.load(open(param_file, 'rb'))
+                policy_inp_params = policy_params[0]
+                policy_ens_params = policy_params[1]
+                policy_out_params = policy_params[2]
+
+                hidden_ens = nengo.Ensemble(
+                    n_neurons=hidden_size,
+                    dimensions=1,
+                    # dimensions=args.dim * 2 + args.maze_id_dim,
+                    neuron_type=neuron_type,
+                    **policy_ens_params
+                )
+
+                out = nengo.Node(size_in=2)
+
+                if n_layers == 1:
+                    conn_in = nengo.Connection(
+                        inp, hidden_ens.neurons, synapse=None,
+                        **policy_inp_params
+                    )
+                    conn_out = nengo.Connection(
+                        hidden_ens.neurons, out, synapse=None,
+                        **policy_out_params
+                    )
+                elif n_layers == 2:
+                    policy_mid_params = policy_params[3]
+                    policy_ens_two_params = policy_params[4]
+
+                    hidden_ens_two = nengo.Ensemble(
+                        n_neurons=hidden_size,
+                        dimensions=1,
+                        neuron_type=neuron_type,
+                        **policy_ens_two_params
+                    )
+
+                    conn_in = nengo.Connection(
+                        inp, hidden_ens.neurons, synapse=0.001,
+                        **policy_inp_params
+                    )
+                    conn_mid = nengo.Connection(
+                        hidden_ens.neurons, hidden_ens_two.neurons, synapse=0.001,
+                        **policy_mid_params
+                    )
+                    conn_out = nengo.Connection(
+                        hidden_ens_two.neurons, out, synapse=0.001,
+                        **policy_out_params
+                    )
+                else:
+                    raise NotImplementedError
+            else:
+
+                hidden_ens = nengo.Ensemble(
+                    n_neurons=hidden_size,
+                    dimensions=1,
+                    neuron_type=neuron_type
+                )
+
+                out = nengo.Node(size_in=2)
+
+                if n_layers == 1:
+
+                    conn_in = nengo.Connection(inp, hidden_ens.neurons, synapse=None)
+                    conn_out = nengo.Connection(hidden_ens.neurons, out, synapse=None)
+                elif n_layers == 2:
+
+                    hidden_ens_two = nengo.Ensemble(
+                        n_neurons=hidden_size,
+                        dimensions=1,
+                        neuron_type=neuron_type
+                    )
+
+                    conn_in = nengo.Connection(inp, hidden_ens.neurons, synapse=None)
+                    conn_mid = nengo.Connection(hidden_ens.neurons, hidden_ens_two.neurons, synapse=None)
+                    conn_out = nengo.Connection(hidden_ens_two.neurons, out, synapse=None)
+                else:
+                    raise NotImplementedError
+
+            out_p = nengo.Probe(out, label="out_p")
+            self.out_p_filt = nengo.Probe(out, synapse=0.1, label="out_p_filt")
+
+        # self.sim = nengo_dl.Simulator(self.net, minibatch_size=1)
+        ## self.sim.load_params(param_file)
+        # self.sim.compile(loss={self.out_p_filt: mse_loss})
+        self.n_steps = n_steps
+
+    def predict(self, inputs):
+
+        self.sim = nengo_dl.Simulator(self.net, minibatch_size=1)
+        # self.sim.load_params(self.param_file)
+        self.sim.compile(loss={self.out_p_filt: mse_loss})
+        # self.n_steps = n_steps
+
+        tiled_input = np.tile(inputs[:, None, :], (1, self.n_steps, 1))
+
+        pred_eval = self.sim.predict(tiled_input)
+        return pred_eval[self.out_p_filt][:, 10:, :].mean(axis=1)
+
+
+class SpikingLocalizationNengo(object):
+
+    def __init__(self, param_file, dim=256, maze_id_dim=256, n_sensors=36, hidden_size=4096, n_layers=1, net_seed=13, n_steps=30):
+        self.param_file = param_file
+        self.net = nengo.Network(seed=net_seed)
+        with self.net:
+            # set some default parameters for the neurons that will make
+            # the training progress more smoothly
+
+            self.net.config[nengo.Connection].synapse = None
+            neuron_type = nengo.LIF(amplitude=0.01)
+
+            # this is an optimization to improve the training speed,
+            # since we won't require stateful behaviour in this example
+            self.net.config[nengo.Connection].transform = nengo_dl.dists.Glorot()
+            nengo_dl.configure_settings(stateful=False)
+
+            # the input node that will be used to feed in (context, location, goal)
+            inp = nengo.Node(np.zeros((36 * 4 + maze_id_dim,)))
+
+            if '.pkl' in param_file:
+                print("Loading values from pickle file")
+
+                localization_params = pickle.load(open(param_file, 'rb'))
+                localization_inp_params = localization_params[0]
+                localization_ens_params = localization_params[1]
+                localization_out_params = localization_params[2]
+
+                hidden_ens = nengo.Ensemble(
+                    n_neurons=hidden_size,
+                    # dimensions=36*4 + args.maze_id_dim,
+                    dimensions=1,
+                    neuron_type=neuron_type,
+                    **localization_ens_params
+                )
+
+                out = nengo.Node(size_in=dim)
+
+                if n_layers == 1:
+
+                    conn_in = nengo.Connection(
+                        inp, hidden_ens.neurons, synapse=None,
+                        **localization_inp_params
+                    )
+                    conn_out = nengo.Connection(
+                        hidden_ens.neurons, out, synapse=None,
+                        # function=lambda x: np.zeros((args.dim,)),
+                        **localization_out_params
+                    )
+                elif n_layers == 2:
+
+                    localization_mid_params = localization_params[3]
+                    localization_ens_two_params = localization_params[4]
+
+                    hidden_ens_two = nengo.Ensemble(
+                        n_neurons=hidden_size,
+                        dimensions=1,
+                        neuron_type=neuron_type,
+                        **localization_ens_two_params
+                    )
+
+                    conn_in = nengo.Connection(
+                        inp, hidden_ens.neurons, synapse=None,
+                        **localization_inp_params
+                    )
+                    conn_mid = nengo.Connection(
+                        hidden_ens.neurons, hidden_ens_two.neurons, synapse=None,
+                        **localization_mid_params
+                    )
+                    conn_out = nengo.Connection(
+                        hidden_ens_two.neurons, out, synapse=None,
+                        **localization_out_params
+                    )
+
+            else:
+                hidden_ens = nengo.Ensemble(
+                    n_neurons=hidden_size,
+                    dimensions=36 * 4 + maze_id_dim,
+                    neuron_type=neuron_type
+                )
+
+                out = nengo.Node(size_in=dim)
+
+                if n_layers == 2:
+                    hidden_ens_two = nengo.Ensemble(
+                        n_neurons=hidden_size,
+                        dimensions=1,
+                        # dimensions=36*4 + args.maze_id_dim,
+                        neuron_type=neuron_type
+                    )
+
+                    conn_in = nengo.Connection(
+                        inp, hidden_ens.neurons, synapse=None
+                    )
+
+                    conn_mid = nengo.Connection(
+                        hidden_ens.neurons, hidden_ens_two.neurons, synapse=None
+                    )
+
+                    conn_out = nengo.Connection(
+                        hidden_ens_two.neurons, out, synapse=None,
+                    )
+
+                else:
+
+                    conn_in = nengo.Connection(
+                        inp, hidden_ens.neurons, synapse=None
+                    )
+                    conn_out = nengo.Connection(
+                        hidden_ens.neurons, out, synapse=None,
+                    )
+
+                # conn_in = nengo.Connection(inp, hidden_ens, synapse=None)
+                # conn_out = nengo.Connection(hidden_ens, out, synapse=None, function=lambda x: np.zeros((args.dim,)))
+
+            out_p = nengo.Probe(out, label="out_p")
+            self.out_p_filt = nengo.Probe(out, synapse=0.1, label="out_p_filt")
+
+        self.sim = nengo_dl.Simulator(self.net, minibatch_size=1)
+        # self.sim.load_params(param_file)
+        self.sim.compile(loss={self.out_p_filt: mse_loss})
+        self.n_steps = n_steps
+
+    def predict(self, inputs):
+        tiled_input = np.tile(inputs[:, None, :], (1, self.n_steps, 1))
+
+        pred_eval = self.sim.predict(tiled_input)
+        return pred_eval[self.out_p_filt][:, 10:, :].mean(axis=1)

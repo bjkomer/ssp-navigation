@@ -15,11 +15,11 @@ import pandas as pd
 import sys
 
 parser = argparse.ArgumentParser(
-    'Compute the RMSE of a policy on a dataset'
+    'View spatial activations of a policy'
 )
 
 
-parser.add_argument('--spatial-encoding', type=str, default='ssp',
+parser.add_argument('--spatial-encoding', type=str, default='sub-toroid-ssp',
                     choices=[
                         'ssp', 'hex-ssp', 'periodic-hex-ssp', 'grid-ssp', 'ind-ssp', 'orth-proj-ssp',
                         'learned-ssp',
@@ -39,7 +39,7 @@ parser.add_argument('--hilbert-points', type=int, default=1, choices=[0, 1, 2, 3
                     help='pc centers. 0: random uniform. 1: hilbert curve. 2: evenly spaced grid. 3: hex grid')
 parser.add_argument('--n-tiles', type=int, default=8, help='number of layers for tile coding')
 parser.add_argument('--n-bins', type=int, default=0, help='number of bins for tile coding')
-parser.add_argument('--ssp-scaling', type=float, default=1.0)
+parser.add_argument('--ssp-scaling', type=float, default=0.5)
 parser.add_argument('--grid-ssp-min', type=float, default=0.25, help='minimum plane wave scale')
 parser.add_argument('--grid-ssp-max', type=float, default=2.0, help='maximum plane wave scale')
 parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
@@ -95,17 +95,13 @@ assert args.out_file != ""
 # only support npz or pandas csv
 assert '.npz' in args.out_file
 
-if args.overwrite_output == 0:
-    if os.path.exists(args.out_file):
-        print("Output file already exists, loading and viewing")
-        print(args.out_file)
-        data = np.load(args.out_file)
-        feature_maps_null_goal = data['feature_maps_null_goal']
-        feature_maps_null_start = data['feature_maps_null_start']
-        # sys.exit(0)
-    else:
-        print("Generating data for:")
-        print(args.out_file)
+if args.overwrite_output == 0 and os.path.exists(args.out_file):
+    print("Output file already exists, loading and viewing")
+    print(args.out_file)
+    data = np.load(args.out_file)
+    feature_maps_null_goal = data['feature_maps_null_goal']
+    feature_maps_null_start = data['feature_maps_null_start']
+    # sys.exit(0)
 else:
     print("Generating data for:")
     print(args.out_file)
@@ -249,7 +245,7 @@ else:
     )
 
     feature_maps_null_goal, feature_maps_null_start = validation_set.get_spatial_activations(
-        model, dim=args.dim, hidden_size=args.hidden_size, n_mazes=len(maze_indices), res=64
+        model, dim=args.dim, iddim=args.maze_id_dim, hidden_size=args.hidden_size, n_mazes=len(maze_indices), res=64
     )
 
     np.savez(
@@ -277,7 +273,17 @@ data = np.load(dataset_file)
 fine_mazes = data['fine_mazes']
 for mi in range(n_mazes):
     ax[mi].imshow(fine_mazes[mi, :, :])
-fig.savefig("output/feature_images/environments.png")
+
+
+# folder_name = 'output/feature_images'
+folder_name = 'output/feature_images_debug'
+if args.tile_mazes:
+    folder_name = 'output/feature_images_tiled'
+
+if not os.path.exists(folder_name):
+    os.makedirs(folder_name)
+
+fig.savefig("{}/environments.png".format(folder_name))
 
 fig, ax = plt.subplots(2, n_mazes)
 
@@ -287,4 +293,6 @@ for fi in range(n_features):
         # plt.imshow(feature_maps_null_goal[mi, :, fi].reshape(res, res))
         ax[0, mi].imshow(feature_maps_null_goal[mi, :, fi].reshape(res, res))
         ax[1, mi].imshow(feature_maps_null_start[mi, :, fi].reshape(res, res))
-    fig.savefig("output/feature_images/feature_map_{}.png".format(fi))
+        ax[0, mi].set_axis_off()
+        ax[1, mi].set_axis_off()
+    fig.savefig("{}/feature_map_{}.png".format(folder_name, fi))

@@ -135,8 +135,8 @@ def main():
     parser.add_argument('--loss-function', type=str, default='cosine',
                         choices=['cosine', 'mse', 'combined', 'scaled'])
     parser.add_argument('--noise-type', type=str, default='memory', choices=['memory', 'gaussian', 'both'])
-    parser.add_argument('--sigma', type=float, default=0.5, help='sigma on the gaussian noise if noise-type==gaussian')
-    parser.add_argument('--spatial-encoding', type=str, default='ssp',
+    parser.add_argument('--sigma', type=float, default=0.005, help='sigma on the gaussian noise if noise-type==gaussian')
+    parser.add_argument('--spatial-encoding', type=str, default='sub-toroid-ssp',
                         choices=[
                             'ssp', 'hex-ssp', 'random', '2d', '2d-normalized', 'one-hot', 'hex-trig',
                             'sub-toroid-ssp', 'var-sub-toroid-ssp', 'proj-ssp', 'orth-proj-ssp',
@@ -153,17 +153,17 @@ def main():
     parser.add_argument('--ssp-scaling', type=float, default=1.0)
     parser.add_argument('--phi', type=float, default=0.5, help='phi as a fraction of pi for orth-proj-ssp')
     parser.add_argument('--n-proj', type=int, default=3, help='projection dimension for sub toroids')
-    parser.add_argument('--scale-ratio', type=float, default=(1 + 5 ** 0.5) / 2, help='ratio between sub toroid scales')
+    parser.add_argument('--scale-ratio', type=float, default=0, help='ratio between sub toroid scales')
 
     parser.add_argument('--val-period', type=int, default=10, help='number of epochs before a test/validation set run')
     parser.add_argument('--train-fraction', type=float, default=.5, help='proportion of the dataset to use for training')
     parser.add_argument('--n-samples', type=int, default=10000,
                         help='Number of memories to generate. Total samples will be n-samples * n-items')
     parser.add_argument('--n-items', type=int, default=12, help='number of items in memory. Proxy for noisiness')
-    parser.add_argument('--dim', type=int, default=512, help='Dimensionality of the semantic pointers')
+    parser.add_argument('--dim', type=int, default=256, help='Dimensionality of the semantic pointers')
     parser.add_argument('--hidden-size', type=int, default=512, help='Hidden size of the cleanup network')
-    parser.add_argument('--limits', type=str, default="0,13,0,13", help='The limits of the space')
-    # parser.add_argument('--limits', type=str, default="-5,5,-5,5", help='The limits of the space')
+    # parser.add_argument('--limits', type=str, default="0,13,0,13", help='The limits of the space')
+    parser.add_argument('--limits', type=str, default="-5,5,-5,5", help='The limits of the space')
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=0.001)
@@ -176,6 +176,8 @@ def main():
     #                     help='Name of output folder within logdir. Will use current date and time if blank')
     parser.add_argument('--weight-histogram', action='store_true', help='Save histograms of the weights if set')
     parser.add_argument('--optimizer', type=str, default='adam', choices=['rmsprop', 'adam', 'sgd'])
+
+    parser.add_argument('--dataset-seed', type=int, default=14)
 
     args = parser.parse_args()
 
@@ -217,7 +219,7 @@ def main():
             dim=args.dim,
             n_items=args.n_items,
             limits=args.limits,
-            seed=args.seed,
+            seed=args.dataset_seed,
         )
         print("Dataset generation complete. Saving dataset")
         np.savez(
