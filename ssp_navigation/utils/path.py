@@ -325,7 +325,7 @@ def expand_node(distances, solved_maze, maze, node, wall_value=1000, strict_corn
 
 
 # TODO: make some tests and visualizations to make sure this function is doing the correct thing
-def solve_maze(maze, start_indices, goal_indices, full_solve=False, wall_value=1000, strict_cornering=False):
+def solve_maze(maze, start_indices, goal_indices, full_solve=False, wall_value=1000, strict_cornering=False, iterative_improvement=True):
 
     # Direction to move for each cell in the maze
     solved_maze = np.zeros((maze.shape[0], maze.shape[1], 2))
@@ -364,11 +364,75 @@ def solve_maze(maze, start_indices, goal_indices, full_solve=False, wall_value=1
         )
         to_expand += new_nodes
 
+        # sort nodes to expand based on distance
+        to_expand.sort(key=lambda x: distances[x[0], x[1]])
+
         # break out early if the start has been found
         if not full_solve and (next_node[0] == start_indices[0]) and (next_node[1] == start_indices[1]):
             break
 
+    if iterative_improvement:
+        # Iteratively update until the distances array remains unchanged for a full iteration
+        changed = True
+        count = 0
+
+        while changed:
+            count += 1
+            print(f"iteration: {count}")
+            print(f"mean distances: {distances.flatten().mean()}")
+            original_distances = distances.copy()
+
+            update_solution(distances, solved_maze, wall_value=wall_value, strict_cornering=strict_cornering)
+
+            if np.allclose(distances, original_distances):
+                changed = False
+            else:
+                changed = True
+        print("Maze Solve Complete\n")
+
     return solved_maze
+
+
+def update_solution(distances, solved_maze, wall_value=1000, strict_cornering=False):
+
+    # Generate list of indices for all nodes around the current node
+    # NOTE: shouldn't need a bounds check since the edge of all mazes is walls
+    dist_sorted_indices = np.dstack(np.unravel_index(np.argsort(distances.ravel()), distances.shape))
+
+    for x in range(distances.shape[0]):
+        for y in range(distances.shape[1]):
+            if distances[x, y] != 2*wall_value:
+                # space is free, now find the shortest distance to get here
+                # attempt to draw a line to the closest nodes to the goal
+                for i in range(dist_sorted_indices.shape[1]):  # note that the first dimension has shape 1, using 2nd
+                    # attempt to draw line
+                    if strict_cornering:
+                        rr, cc, _ = line_aa(int(x), int(y), int(dist_sorted_indices[0, i, 0]), int(dist_sorted_indices[0, i, 1]))
+                    else:
+                        rr, cc = line(int(x), int(y), int(dist_sorted_indices[0, i, 0]), int(dist_sorted_indices[0, i, 1]))
+
+                    if ((len(rr) > 2) and np.all(distances[rr[1:-1], cc[1:-1]] < 2*wall_value)) or np.all(distances[rr, cc] < 2*wall_value):
+
+                        x_best = dist_sorted_indices[0, i, 0]
+                        y_best = dist_sorted_indices[0, i, 1]
+
+                        # If the next best node is the current node, break out early
+                        if x == x_best and y == y_best:
+                            break
+
+                        direction = np.array([x_best - x, y_best - y]).astype(np.float32)
+                        direction /= np.linalg.norm(direction)
+                        distance = np.sqrt((x_best - x)**2 + (y_best - y)**2)
+
+                        # Only update if the distance has been improved
+                        if distance + distances[x_best, y_best] < distances[x, y]:
+                            # distance to the best node + the distance from the best node to the goal
+                            distances[x, y] = distance + distances[x_best, y_best]
+                            # direction to the best node
+                            solved_maze[x, y, :] = direction
+                            # print(direction)
+
+                assert(distances[dist_sorted_indices[0, i, 0], dist_sorted_indices[0, i, 1]] < wall_value)
 
 
 def test_solve_maze():
