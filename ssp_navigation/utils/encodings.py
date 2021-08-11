@@ -3,11 +3,14 @@ from spatial_semantic_pointers.utils import encode_point, encode_point_hex, make
     make_optimal_periodic_axis, get_fixed_dim_grid_axes, power, \
     get_fixed_dim_sub_toriod_axes, get_fixed_dim_variable_sub_toriod_axes
 from functools import partial
-from ssp_navigation.utils.models import EncodingLayer
 from hilbertcurve.hilbertcurve import HilbertCurve
 import nengo_spa as spa
 from scipy.special import legendre
-import torch
+try:
+    from ssp_navigation.utils.models import EncodingLayer
+    import torch
+except:
+    print("could not import pytorch")
 
 
 def encode_projection(x, y, dim, seed=13):

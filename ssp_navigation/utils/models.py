@@ -1,6 +1,12 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+try:
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+except:
+    print("Could not import pytorch, some functionality will be unavailable")
+    torch = None
+    nn = None
+    F = None
 import json
 import numpy as np
 import nengo
